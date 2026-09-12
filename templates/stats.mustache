@@ -1,0 +1,81 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_contenttranslator/stats
+
+    Progress per target language.
+
+    Context variables required for this template:
+    * langs - array of {lang, name, total, done, reviewed, machine, stale, missing, failed, queued, locked, percent,
+      reviewedpercent, machinepercent, stalepercent, filterurl}
+    * budget - {limit, used, percent, formatted, hasbudget}
+
+    Example context (json):
+    {
+        "langs": [{"lang": "de", "name": "Deutsch", "total": 10, "done": 6, "reviewed": 2, "machine": 4, "stale": 1,
+                   "missing": 2, "failed": 1, "queued": 0, "locked": 0, "percent": 60, "reviewedpercent": 20,
+                   "machinepercent": 40, "stalepercent": 10, "filterurl": "#"}],
+        "budget": {"hasbudget": true, "limit": "2,000,000", "used": "120,000", "percent": 6}
+    }
+}}
+<div class="local-contenttranslator-stats row">
+    {{#langs}}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title d-flex justify-content-between">
+                    <a href="{{filterurl}}">{{name}}</a>
+                    <span class="text-muted small">{{done}} / {{total}}</span>
+                </h5>
+                <div class="progress mb-2" style="height: 1.2rem;" role="progressbar" aria-label="{{name}}"
+                     aria-valuenow="{{percent}}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar bg-success" style="width: {{reviewedpercent}}%">{{#reviewed}}{{reviewed}}{{/reviewed}}</div>
+                    <div class="progress-bar bg-info" style="width: {{machinepercent}}%">{{#machine}}{{machine}}{{/machine}}</div>
+                    <div class="progress-bar bg-warning" style="width: {{stalepercent}}%">{{#stale}}{{stale}}{{/stale}}</div>
+                </div>
+                <ul class="list-inline small mb-0">
+                    <li class="list-inline-item"><span class="badge bg-success text-white">{{#str}}status:reviewed, local_contenttranslator{{/str}}</span> {{reviewed}}</li>
+                    <li class="list-inline-item"><span class="badge bg-info text-white">{{#str}}status:machine, local_contenttranslator{{/str}}</span> {{machine}}</li>
+                    <li class="list-inline-item"><span class="badge bg-warning text-dark">{{#str}}status:stale, local_contenttranslator{{/str}}</span> {{stale}}</li>
+                    <li class="list-inline-item"><span class="badge bg-secondary text-white">{{#str}}status:queued, local_contenttranslator{{/str}}</span> {{queued}}</li>
+                    <li class="list-inline-item"><span class="badge bg-danger text-white">{{#str}}status:failed, local_contenttranslator{{/str}}</span> {{failed}}</li>
+                    <li class="list-inline-item"><span class="badge bg-light text-dark border">{{#str}}status:missing, local_contenttranslator{{/str}}</span> {{missing}}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    {{/langs}}
+    {{^langs}}
+    <div class="col-12"><div class="alert alert-info">{{#str}}notargetlangs, local_contenttranslator{{/str}}</div></div>
+    {{/langs}}
+</div>
+{{#budget}}
+<div class="local-contenttranslator-budget mb-3">
+    {{#hasbudget}}
+    <div class="d-flex justify-content-between small">
+        <span>{{#str}}budgetusage, local_contenttranslator{{/str}}</span>
+        <span>{{used}} / {{limit}} {{#str}}characters, local_contenttranslator{{/str}} ({{percent}} %)</span>
+    </div>
+    <div class="progress" style="height: 0.6rem;" role="progressbar" aria-valuenow="{{percent}}" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar {{#warning}}bg-warning{{/warning}}{{^warning}}bg-primary{{/warning}}" style="width: {{percent}}%"></div>
+    </div>
+    {{/hasbudget}}
+    {{^hasbudget}}
+    <div class="alert alert-warning">{{#str}}nobudgetwarning, local_contenttranslator{{/str}}</div>
+    {{/hasbudget}}
+</div>
+{{/budget}}

@@ -1,0 +1,50 @@
+name: Moodle Plugin CI
+
+on: [push, pull_request]
+
+jobs:
+  moodle500to502:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - moodle_branches: "MOODLE_502_STABLE"
+            database: "pgsql"
+          - moodle_branches: "MOODLE_501_STABLE"
+            database: "mariadb"
+          - moodle_branches: "MOODLE_500_STABLE"
+            database: "pgsql"
+    uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
+    with:
+      disable_release: true
+      moodle_branches: ${{ matrix.moodle_branches }}
+      database: ${{ matrix.database }}
+      min_php: '8.2'
+      extra_plugin_runners: |
+        moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle-filter_contenttranslator
+      enable_phpmd: true
+      codechecker_max_warnings: 0
+      workarounds: |
+        # WORKAROUND 24/07/2026: pass phpcs files via --file-list (MAX_ARG_STRLEN with moodle/public paths).
+        perl -0pi -e 's/foreach \(\$files as \$file\) \{\n            \$cmd\[\] = \$file;\n        \}/\$fileList = \$this->tempFile . "-file-list";\n        file_put_contents(\$fileList, implode(PHP_EOL, \$files));\n        \$cmd[] = "--file-list=" . \$fileList;/s' "$GITHUB_WORKSPACE/m-ci/src/Command/CodeCheckerCommand.php"
+        grep -q -- '--file-list' "$GITHUB_WORKSPACE/m-ci/src/Command/CodeCheckerCommand.php" && echo "codechecker patched" || { echo "codechecker patch FAILED"; exit 1; }
+        # WORKAROUND 03/08/2026: pass the plugin directory to phpdoc instead of a comma joined file list.
+        perl -0pi -e "s/implode\(\x27,\x27, \\\$files\)/\\\$this->plugin->directory/" "$GITHUB_WORKSPACE/m-ci/src/Command/PHPDocCommand.php"
+        grep -q -- "this->plugin->directory" "$GITHUB_WORKSPACE/m-ci/src/Command/PHPDocCommand.php" && echo "phpdoc patched" || { echo "phpdoc patch FAILED"; exit 1; }
+  moodle405:
+    uses: Wunderbyte-GmbH/catalyst-moodle-workflows/.github/workflows/ci.yml@main
+    with:
+      disable_release: true
+      moodle_branches: "MOODLE_405_STABLE"
+      min_php: '8.1'
+      extra_plugin_runners: |
+        moodle-plugin-ci add-plugin --branch main Wunderbyte-GmbH/moodle-filter_contenttranslator
+      enable_phpmd: true
+      codechecker_max_warnings: 0
+      workarounds: |
+        # WORKAROUND 24/07/2026: pass phpcs files via --file-list (MAX_ARG_STRLEN with moodle/public paths).
+        perl -0pi -e 's/foreach \(\$files as \$file\) \{\n            \$cmd\[\] = \$file;\n        \}/\$fileList = \$this->tempFile . "-file-list";\n        file_put_contents(\$fileList, implode(PHP_EOL, \$files));\n        \$cmd[] = "--file-list=" . \$fileList;/s' "$GITHUB_WORKSPACE/m-ci/src/Command/CodeCheckerCommand.php"
+        grep -q -- '--file-list' "$GITHUB_WORKSPACE/m-ci/src/Command/CodeCheckerCommand.php" && echo "codechecker patched" || { echo "codechecker patch FAILED"; exit 1; }
+        # WORKAROUND 03/08/2026: pass the plugin directory to phpdoc instead of a comma joined file list.
+        perl -0pi -e "s/implode\(\x27,\x27, \\\$files\)/\\\$this->plugin->directory/" "$GITHUB_WORKSPACE/m-ci/src/Command/PHPDocCommand.php"
+        grep -q -- "this->plugin->directory" "$GITHUB_WORKSPACE/m-ci/src/Command/PHPDocCommand.php" && echo "phpdoc patched" || { echo "phpdoc patch FAILED"; exit 1; }
