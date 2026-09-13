@@ -111,7 +111,7 @@ if ($hassiteconfig) {
                 'local_contenttranslator/price_' . $name,
                 get_string('priceengine', 'local_contenttranslator', $label),
                 get_string('price_help', 'local_contenttranslator'),
-                $name === 'pseudo' ? 0 : '',
+                0,
                 PARAM_FLOAT,
                 8
             ));
