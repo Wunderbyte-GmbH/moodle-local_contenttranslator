@@ -130,4 +130,80 @@ final class backup_restore_test extends \advanced_testcase {
         // The original course is untouched.
         $this->assertSame('<p>Seiteninhalt</p>', translation_manager::get((int)$pagetranslation->id)->text);
     }
+
+    /**
+     * Course with a page whose content has a reviewed human translation; returns [course, page, translation].
+     *
+     * @return array
+     */
+    private function create_translated_course(): array {
+        global $CFG, $USER;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        set_config('targetlangs', 'de', 'local_contenttranslator');
+        set_config('engine', 'pseudo', 'local_contenttranslator');
+        set_config('budgetchars', 1000000, 'local_contenttranslator');
+        set_config('enableauto', 0, 'local_contenttranslator');
+        registry::reset();
+        engine_manager::reset();
+        $CFG->backup_file_logger_level = \backup::LOG_NONE;
+
+        $course = $this->getDataGenerator()->create_course(['fullname' => 'Copy me']);
+        $page = $this->getDataGenerator()->create_module('page', [
+            'course' => $course->id, 'name' => 'Page', 'content' => '<p>Copy body</p>',
+        ]);
+        item_manager::sync_course((int)$course->id);
+        $item = item_manager::find('mod_page', 'page', 'content', (int)$page->id);
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, (int)$USER->id);
+        $translation = translation_manager::save_human($translation, '<p>Kopierter Inhalt</p>', FORMAT_HTML, (int)$USER->id, true);
+        return [$course, $page, $translation];
+    }
+
+    /**
+     * Activity duplication copies translations; the copy is independent afterwards (BK-03).
+     */
+    public function test_duplicate_activity(): void {
+        global $USER;
+        [$course, $page, $translation] = $this->create_translated_course();
+
+        $newcm = duplicate_module($course, get_fast_modinfo($course)->get_cm($page->cmid));
+        $newitem = item_manager::find('mod_page', 'page', 'content', (int)$newcm->instance);
+        $this->assertNotNull($newitem, 'Duplicated activity has its item');
+        $this->assertEquals(\context_module::instance($newcm->id)->id, $newitem->contextid);
+        $newtranslation = translation_manager::get_for_item((int)$newitem->id, 'de');
+        $this->assertNotNull($newtranslation, 'Duplicated activity keeps its translation');
+        $this->assertSame('<p>Kopierter Inhalt</p>', $newtranslation->text);
+        $this->assertSame(translation_manager::STATUS_REVIEWED, $newtranslation->status);
+        $this->assertNotEquals($translation->id, $newtranslation->id);
+
+        translation_manager::save_human($newtranslation, '<p>Nur in der Kopie</p>', FORMAT_HTML, (int)$USER->id, true);
+        $this->assertSame('<p>Kopierter Inhalt</p>', translation_manager::get((int)$translation->id)->text, 'Independent copies');
+    }
+
+    /**
+     * Course copy keeps translations (BK-03).
+     */
+    public function test_course_copy(): void {
+        global $DB;
+        [$course, , ] = $this->create_translated_course();
+
+        $formdata = (object)[
+            'courseid' => $course->id, 'fullname' => 'Copied course', 'shortname' => 'copied', 'category' => $course->category,
+            'visible' => 1, 'startdate' => time(), 'enddate' => 0, 'idnumber' => '', 'userdata' => 0,
+        ];
+        \copy_helper::create_copy(\copy_helper::process_formdata($formdata));
+        ob_start();
+        $this->runAdhocTasks(\core\task\asynchronous_copy_task::class);
+        ob_end_clean();
+
+        $newcourse = $DB->get_record('course', ['shortname' => 'copied'], '*', MUST_EXIST);
+        $newpage = $DB->get_record('page', ['course' => $newcourse->id], '*', MUST_EXIST);
+        $newitem = item_manager::find('mod_page', 'page', 'content', (int)$newpage->id);
+        $this->assertNotNull($newitem, 'Copied course has the page item');
+        $this->assertEquals($newcourse->id, $newitem->courseid);
+        $newtranslation = translation_manager::get_for_item((int)$newitem->id, 'de');
+        $this->assertNotNull($newtranslation, 'Copied course keeps the translation');
+        $this->assertSame('<p>Kopierter Inhalt</p>', $newtranslation->text);
+        $this->assertSame(translation_manager::STATUS_REVIEWED, $newtranslation->status);
+    }
 }

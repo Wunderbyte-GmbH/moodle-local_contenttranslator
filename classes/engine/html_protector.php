@@ -137,12 +137,21 @@ final class html_protector {
         if (preg_match('~^' . $fence . '[a-zA-Z]*\s*\n(.*)\n' . $fence . '$~s', $text, $m)) {
             $text = trim($m[1]);
         }
-        $text = preg_replace('~^(?:Translation|Übersetzung|Traduction|Traducción|Traduzione)\s*:\s*~iu', '', $text);
-        $quoted = ($text[0] === '"' && substr($text, -1) === '"') || ($text[0] === '„' && substr($text, -1) === '“');
-        if (strlen($text) > 2 && $quoted) {
-            $inner = substr($text, 1, -1);
-            if (strpos($inner, '"') === false) {
-                $text = $inner;
+        $text = (string)preg_replace('~^(?:Translation|Übersetzung|Traduction|Traducción|Traduzione)\s*:\s*~iu', '', $text);
+        if ($text === '') {
+            return '';
+        }
+        // Quotes around the whole answer. „ and “ are three bytes each, so compare whole strings, not $text[0].
+        foreach ([['"', '"'], ['„', '“']] as [$open, $close]) {
+            if (
+                strlen($text) > strlen($open) + strlen($close)
+                && str_starts_with($text, $open) && str_ends_with($text, $close)
+            ) {
+                $inner = substr($text, strlen($open), -strlen($close));
+                if (strpos($inner, $open) === false && strpos($inner, $close) === false) {
+                    $text = $inner;
+                }
+                break;
             }
         }
         return trim($text);

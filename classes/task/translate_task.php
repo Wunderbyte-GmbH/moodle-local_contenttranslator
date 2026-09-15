@@ -19,6 +19,7 @@ namespace local_contenttranslator\task;
 use local_contenttranslator\budget;
 use local_contenttranslator\config;
 use local_contenttranslator\engine\budget_exceeded_exception;
+use local_contenttranslator\engine\engine_manager;
 use local_contenttranslator\engine\rate_limited_exception;
 use local_contenttranslator\item_manager;
 use local_contenttranslator\queue;
@@ -57,9 +58,13 @@ class translate_task extends \core\task\adhoc_task {
             mtrace("local_contenttranslator: automatic translation is disabled for course $courseid.");
             return;
         }
+        // Automatic jobs always run as the translation service user, never as the user who triggered them (ENG-05).
         $userid = (int)config::get('serviceuserid', 0);
-        if (!$userid) {
-            $userid = (int)$this->get_userid();
+        $problem = self::get_service_user_problem($courseid, $lang, $userid);
+        if ($problem !== null) {
+            mtrace('local_contenttranslator: automatic translation paused: ' . $problem);
+            self::notify_paused($problem);
+            return;
         }
         $limit = (int)config::get('backloglimit', 200);
         $pending = item_manager::get_pending($courseid, $lang, $limit);
@@ -84,6 +89,73 @@ class translate_task extends \core\task\adhoc_task {
         mtrace("local_contenttranslator: $done translated.");
         if (count($pending) >= $limit && $limit > 0) {
             queue::queue_course_lang($courseid, $lang, $trigger, (int)$this->get_userid(), 60);
+        }
+    }
+
+    /**
+     * Why automatic translation cannot run for a course and language, or null when it can.
+     *
+     * Blocked when none of the engines configured for the language can be used by the service user (no service
+     * user, AI policy not accepted, provider unavailable). Local engines such as the pseudo engine need no service user.
+     *
+     * @param int $courseid
+     * @param string $lang
+     * @param int $userid Service user id, 0 = none.
+     * @return string|null
+     */
+    public static function get_service_user_problem(int $courseid, string $lang, int $userid): ?string {
+        global $CFG, $DB;
+        if ($userid && !$DB->record_exists('user', ['id' => $userid, 'deleted' => 0])) {
+            $userid = 0;
+        }
+        $externalallowed = $courseid > 0 && $courseid != SITEID ? config::get_effective($courseid)->externalallowed : true;
+        $engines = engine_manager::get_engines_for_lang((string)$CFG->lang, $lang, $externalallowed);
+        if (!$engines) {
+            // Nothing is sent anywhere; the pipeline reports "no engine" per item.
+            return null;
+        }
+        foreach ($engines as $engine) {
+            if (!$engine->is_external() || ($userid && $engine->is_available_for_user($userid))) {
+                return null;
+            }
+        }
+        return get_string($userid ? 'check:serviceuserpolicy' : 'check:noserviceuser', 'local_contenttranslator');
+    }
+
+    /**
+     * Tell the site admins, at most once per day, that automatic translation is paused.
+     *
+     * @param string $reason
+     */
+    private static function notify_paused(string $reason): void {
+        $today = date('Ymd');
+        if (config::get('automationpausednotified', '') === $today) {
+            return;
+        }
+        set_config('automationpausednotified', $today, 'local_contenttranslator');
+        $url = new \moodle_url('/admin/settings.php', ['section' => 'local_contenttranslator']);
+        $subject = get_string('automationpaused:subject', 'local_contenttranslator');
+        $body = get_string(
+            'automationpaused:body',
+            'local_contenttranslator',
+            (object)['reason' => $reason, 'url' => $url->out(false)]
+        );
+        foreach (get_admins() as $admin) {
+            $message = new \core\message\message();
+            $message->component = 'local_contenttranslator';
+            $message->courseid = SITEID;
+            $message->name = 'budget';
+            $message->userfrom = \core_user::get_noreply_user();
+            $message->userto = $admin;
+            $message->subject = $subject;
+            $message->fullmessage = $body;
+            $message->fullmessageformat = FORMAT_PLAIN;
+            $message->fullmessagehtml = text_to_html($body);
+            $message->smallmessage = $subject;
+            $message->notification = 1;
+            $message->contexturl = $url->out(false);
+            $message->contexturlname = get_string('pluginname', 'local_contenttranslator');
+            message_send($message);
         }
     }
 }

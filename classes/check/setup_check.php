@@ -80,6 +80,11 @@ class setup_check extends check {
         if (empty($CFG->filterall)) {
             $problems[] = get_string('check:filterall', 'local_contenttranslator');
             $status = $status === result::ERROR ? $status : result::WARNING;
+        } else if (isset($filters['contenttranslator']) && !in_array('contenttranslator', filter_get_string_filters(), true)) {
+            // Filter all strings is on because another filter applies to headings, but ours only applies to content:
+            // format_string() skips it, so course, section and activity names stay untranslated.
+            $problems[] = get_string('check:filterheadings', 'local_contenttranslator');
+            $status = $status === result::ERROR ? $status : result::WARNING;
         }
 
         // Service user for automatic core_ai calls.

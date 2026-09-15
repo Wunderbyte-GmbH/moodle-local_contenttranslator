@@ -88,5 +88,12 @@ final class html_protector_test extends \basic_testcase {
         $this->assertSame('Hallo', html_protector::clean_llm_output('"Hallo"'));
         $this->assertSame('Hallo Welt', html_protector::clean_llm_output('Translation: Hallo Welt'));
         $this->assertSame('Er sagte "Hi" zu mir', html_protector::clean_llm_output('Er sagte "Hi" zu mir'));
+        // German quotation marks around the whole answer are removed too, inner quotes are kept.
+        $this->assertSame('Hallo Welt', html_protector::clean_llm_output('„Hallo Welt“'));
+        $this->assertSame('„Er sagte „Hi“ zu mir“', html_protector::clean_llm_output('„Er sagte „Hi“ zu mir“'));
+        // Empty or whitespace-only answers (and a bare prefix) return an empty string without PHP warnings.
+        $this->assertSame('', html_protector::clean_llm_output(''));
+        $this->assertSame('', html_protector::clean_llm_output("  \n "));
+        $this->assertSame('', html_protector::clean_llm_output('Translation:'));
     }
 }

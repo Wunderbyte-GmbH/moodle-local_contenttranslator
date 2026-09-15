@@ -43,7 +43,9 @@ class core_ai_engine implements engine {
         if (!class_exists(manager::class) || !class_exists(generate_text::class)) {
             return false;
         }
-        return manager::is_action_available(generate_text::class);
+        // Moodle 5.0+: instance method on the DI-managed manager; on 4.5 the method is static, which PHP also
+        // allows to be called through an instance.
+        return \core\di::get(manager::class)->is_action_available(generate_text::class);
     }
 
     #[\Override]

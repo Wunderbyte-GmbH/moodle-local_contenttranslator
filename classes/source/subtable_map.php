@@ -152,6 +152,9 @@ final class subtable_map {
             '*hash', 'json', '*settings*', 'questions', '*css*', '*js*', 'icon', 'toolurl', 'securetoolurl',
             'subnet', 'grade_item', 'legacyfiles*', 'introattachment', 'displayoptions', 'customfield*',
             'timemodified', 'timecreated', 'sortorder',
+            // Settings of mod_booking: comma separated field lists (responsesfields, reportfields, optionsfields,
+            // optionsdownloadfields, signinsheetfields), not content.
+            'booking.*fields',
         ];
         $custom = trim((string)get_config('local_contenttranslator', 'skipcolumns'));
         if ($custom !== '') {
