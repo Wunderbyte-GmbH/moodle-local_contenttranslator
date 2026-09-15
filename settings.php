@@ -83,7 +83,7 @@ if ($hassiteconfig) {
             'local_contenttranslator/defaultcourseenabled',
             get_string('defaultcourseenabled', 'local_contenttranslator'),
             get_string('defaultcourseenabled_desc', 'local_contenttranslator'),
-            1
+            0
         ));
 
         // Engines.

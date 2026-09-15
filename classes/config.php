@@ -139,7 +139,7 @@ final class config {
             return (object)$cached;
         }
         $result = (object)[
-            'enabled' => (bool)self::get('defaultcourseenabled', 1),
+            'enabled' => (bool)self::get('defaultcourseenabled', 0),
             'targetlangs' => self::get_site_target_langs(),
             'visibility' => null,
             'externalallowed' => true,
@@ -216,7 +216,7 @@ final class config {
             return false;
         }
         if ($courseid <= 0 || $courseid == SITEID) {
-            return (bool)self::get('defaultcourseenabled', 1);
+            return (bool)self::get('defaultcourseenabled', 0);
         }
         return self::get_effective($courseid)->enabled;
     }
