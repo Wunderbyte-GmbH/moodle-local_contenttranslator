@@ -30,6 +30,7 @@ use local_contenttranslator\table\items_table;
 use local_contenttranslator\translation_manager;
 
 require_once(__DIR__ . '/../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
 
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA);
@@ -50,11 +51,10 @@ if ($courseid && $courseid != SITEID) {
     $langs = config::get_course_target_langs($courseid);
 } else {
     $courseid = 0;
-    require_login();
     $context = context_system::instance();
-    $PAGE->set_heading(get_string('pluginname', 'local_contenttranslator'));
     $langs = config::get_site_target_langs();
     admin_externalpage_setup('local_contenttranslator_dashboard', '', null, $url);
+    $PAGE->set_heading(get_string('pluginname', 'local_contenttranslator'));
 }
 require_capability('local/contenttranslator:viewreports', $context);
 $PAGE->set_url($url);
