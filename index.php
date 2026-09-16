@@ -44,7 +44,20 @@ $filters = [
 $pageparams = ['courseid' => $courseid] + array_filter($filters, fn($v) => $v !== '');
 $url = new moodle_url('/local/contenttranslator/index.php', $pageparams);
 if ($courseid && $courseid != SITEID) {
-    $course = get_course($courseid);
+    $course = $DB->get_record('course', ['id' => $courseid]);
+    if (!$course) {
+        require_login();
+        // Send site wide reporters to the site dashboard, everyone else to their home page.
+        $fallback = has_capability('local/contenttranslator:viewreports', context_system::instance())
+            ? new moodle_url('/local/contenttranslator/index.php')
+            : new moodle_url('/');
+        redirect(
+            $fallback,
+            get_string('error:nosuchcourse', 'local_contenttranslator'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
+    }
     require_login($course);
     $context = context_course::instance($courseid);
     $PAGE->set_heading($course->fullname);

@@ -112,6 +112,7 @@ $string['error:engineunavailable'] = 'Engine "{$a}" is not available for this us
 $string['error:itemnotfound'] = 'Content item not found.';
 $string['error:markup'] = 'The engine broke the markup: {$a}';
 $string['error:noengine'] = 'No translation engine is available for this language.';
+$string['error:nosuchcourse'] = 'That course does not exist (any more). Choose a course on the translation dashboard.';
 $string['error:ratelimited'] = 'The engine "{$a}" is rate limited. The job will be retried.';
 $string['estimatedcost'] = 'Characters to send (estimated cost)';
 $string['estimateexceedsbudget'] = 'The estimate exceeds the remaining monthly budget. The job pauses when the budget is reached and continues next month.';

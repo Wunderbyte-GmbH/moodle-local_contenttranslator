@@ -27,8 +27,17 @@ use local_contenttranslator\form\course_config_form;
 
 require_once(__DIR__ . '/../../config.php');
 
-$courseid = required_param('courseid', PARAM_INT);
-$course = get_course($courseid);
+$courseid = optional_param('courseid', 0, PARAM_INT);
+$course = $courseid && $courseid != SITEID ? $DB->get_record('course', ['id' => $courseid]) : false;
+if (!$course) {
+    require_login();
+    redirect(
+        new moodle_url('/local/contenttranslator/index.php'),
+        get_string('error:nosuchcourse', 'local_contenttranslator'),
+        null,
+        \core\output\notification::NOTIFY_ERROR
+    );
+}
 require_login($course);
 $context = context_course::instance($courseid);
 require_capability('local/contenttranslator:configurecourse', $context);

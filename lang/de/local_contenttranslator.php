@@ -112,6 +112,7 @@ $string['error:engineunavailable'] = 'Engine "{$a}" ist für diese Person nicht 
 $string['error:itemnotfound'] = 'Inhaltselement nicht gefunden.';
 $string['error:markup'] = 'Die Engine hat das Markup beschädigt: {$a}';
 $string['error:noengine'] = 'Für diese Sprache ist keine Übersetzungs-Engine verfügbar.';
+$string['error:nosuchcourse'] = 'Diesen Kurs gibt es (nicht mehr). Wählen Sie einen Kurs im Übersetzungs-Dashboard.';
 $string['error:ratelimited'] = 'Die Engine "{$a}" ist ratenbegrenzt. Der Job wird wiederholt.';
 $string['estimatedcost'] = 'Zu sendende Zeichen (geschätzte Kosten)';
 $string['estimateexceedsbudget'] = 'Die Schätzung übersteigt das verbleibende Monatsbudget. Der Job pausiert bei Erreichen des Budgets und läuft im nächsten Monat weiter.';
