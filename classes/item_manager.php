@@ -94,7 +94,7 @@ final class item_manager {
         }
         $existing = $DB->get_records('local_contenttranslator_item', [
             'component' => $component, 'itemtype' => $itemtype, 'itemid' => $data->itemid,
-        ], '', 'field, id, sourcehash, sourcelang, langlocked, contextid, courseid, categoryid, label, excluded');
+        ], '', 'field, id, sourcehash, sourcetext, sourcelang, langlocked, contextid, courseid, categoryid, label, excluded');
         $changed = [];
         $items = [];
         $sourcelang = self::resolve_sourcelang($data);
@@ -139,6 +139,10 @@ final class item_manager {
                     // Keep the snapshot current even when only markup changed.
                     $update->sourcetext = $text;
                     $DB->update_record('local_contenttranslator_item', $update);
+                    // Content that was all markup or code may contain translatable text now.
+                    if ((string)$item->sourcetext !== $text && translation_manager::requeue_passthrough($item)) {
+                        $changed[] = (int)$item->id;
+                    }
                 }
                 $items[] = (int)$item->id;
                 unset($existing[$field]);

@@ -315,4 +315,63 @@ final class engine_pipeline_test extends \advanced_testcase {
         $this->assertSame(budget::TRIGGER_ONDEMAND, $usage->triggertype);
         $this->assertNotNull(tm::find(tenant::key((int)$course->id), 'en', 'de', $item->sourcehash));
     }
+
+    /**
+     * Content that is nothing but markup or code is not "translated": no engine call, no stored copy,
+     * and learners keep seeing the current source without a machine translation label or banner.
+     */
+    public function test_nothing_to_translate_is_passed_through(): void {
+        $engine = $this->add_engine(new scripted_engine('scripted'));
+        set_config('engine', 'scripted', 'local_contenttranslator');
+        $source = '<pre><code>Welcome to the course.</code></pre>';
+        [$course, , $item] = $this->create_page($source);
+
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertCount(0, $engine->calls, 'Nothing is sent to the engine');
+        $this->assertSame(translation_manager::STATUS_MACHINE, $translation->status, 'The item counts as done');
+        $this->assertSame('none', $translation->engine);
+        $this->assertEmpty($translation->text, 'No copy of the source is stored as translation');
+
+        $context = \context_course::instance($course->id);
+        $result = api::lookup($source, 'de', $context);
+        $this->assertFalse($result['found'], 'Nothing is shown as translated');
+        $this->assertSame($source, api::get_translation($source, 'de', $context));
+    }
+
+    /**
+     * A markup only change keeps the hash, but content that was all code may now be translatable:
+     * the passed through translation is queued again and translated on the next run.
+     */
+    public function test_markup_only_change_requeues_passed_through_content(): void {
+        global $DB;
+        $engine = $this->add_engine(new scripted_engine('scripted'));
+        set_config('engine', 'scripted', 'local_contenttranslator');
+        [$course, $page, $item] = $this->create_page('<pre><code>Welcome to the course.</code></pre>');
+        translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertCount(0, $engine->calls);
+
+        $DB->set_field('page', 'content', '<p>Welcome to the course.</p>', ['id' => $page->id]);
+        item_manager::sync_course((int)$course->id);
+        $updated = item_manager::get_item((int)$item->id);
+        $this->assertSame($item->sourcehash, $updated->sourcehash, 'Markup is not part of the hash');
+        $this->assertSame(
+            translation_manager::STATUS_QUEUED,
+            translation_manager::get_for_item((int)$item->id, 'de')->status,
+            'The passed through translation is evaluated again'
+        );
+
+        $translation = translator::translate_item($updated, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertCount(1, $engine->calls);
+        $this->assertSame('scripted', $translation->engine);
+        $this->assertSame('[scripted] <p>Welcome to the course.</p>', $translation->text);
+
+        // Real translations are left alone by later markup only changes.
+        $DB->set_field('page', 'content', '<div>Welcome to the course.</div>', ['id' => $page->id]);
+        item_manager::sync_course((int)$course->id);
+        $this->assertSame(
+            translation_manager::STATUS_MACHINE,
+            translation_manager::get_for_item((int)$item->id, 'de')->status,
+            'Only passed through rows are queued again'
+        );
+    }
 }

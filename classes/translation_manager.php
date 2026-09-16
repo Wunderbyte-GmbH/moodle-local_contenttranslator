@@ -411,6 +411,28 @@ final class translation_manager {
     }
 
     /**
+     * Queue passed through translations of an item again (engine "none": the source had nothing to translate).
+     *
+     * Called when only the markup of the source changed: content that was all code may now contain text.
+     * Real machine translations, human translations and locked rows are left alone.
+     *
+     * @param \stdClass $item Item record with id, sourcehash, courseid and categoryid.
+     * @return bool Whether a translation was queued.
+     */
+    public static function requeue_passthrough(\stdClass $item): bool {
+        global $DB;
+        $select = 'itemid = :itemid AND engine = :engine AND status = :machine AND locked = 0';
+        $params = ['itemid' => (int)$item->id, 'engine' => 'none', 'machine' => self::STATUS_MACHINE];
+        if (!$DB->record_exists_select('local_contenttranslator_tr', $select, $params)) {
+            return false;
+        }
+        $DB->set_field_select('local_contenttranslator_tr', 'status', self::STATUS_QUEUED, $select, $params);
+        // Rows written before empty pass-through texts still carry a copy of the old source: drop it from the cache.
+        cache_helper::invalidate($item->sourcehash, (int)$item->courseid, (int)$item->categoryid);
+        return true;
+    }
+
+    /**
      * Roll back to a history entry.
      *
      * @param \stdClass $translation

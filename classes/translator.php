@@ -103,11 +103,12 @@ final class translator {
             if ($protect) {
                 [$protected, $map] = html_protector::protect($text, $ishtml);
                 if (!html_protector::has_translatable_text($protected)) {
-                    // Nothing but markup, links or code: the "translation" is the source itself.
+                    // Nothing but markup, links or code: there is nothing to translate. Store no copy of the source,
+                    // so that learners always see the current source and no "machine translated" label appears.
                     return translation_manager::store_machine(
                         $translation,
                         $item,
-                        $text,
+                        '',
                         $format,
                         translation_manager::ORIGIN_MACHINE,
                         'none',

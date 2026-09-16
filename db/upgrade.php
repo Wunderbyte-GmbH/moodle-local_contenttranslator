@@ -29,5 +29,20 @@
  * @return bool
  */
 function xmldb_local_contenttranslator_upgrade(int $oldversion): bool {
+    global $DB;
+
+    if ($oldversion < 2026091600) {
+        // Content without translatable text used to get a copy of its source as "translation", which froze that
+        // source on the page. Queue those rows again: the pipeline now stores no copy and translates text that
+        // appeared since.
+        $DB->execute(
+            "UPDATE {local_contenttranslator_tr}
+                SET status = :queued, text = NULL
+              WHERE engine = :engine AND status = :machine AND locked = 0",
+            ['queued' => 'queued', 'engine' => 'none', 'machine' => 'machine']
+        );
+        upgrade_plugin_savepoint(true, 2026091600, 'local', 'contenttranslator');
+    }
+
     return true;
 }
