@@ -132,6 +132,27 @@ final class workbench_test extends \advanced_testcase {
     }
 
     /**
+     * An approved machine translation (reviewed without edits) is not overwritten when the source changes:
+     * the new machine text arrives as a suggestion, like for human translations (UI-06).
+     */
+    public function test_reviewed_machine_translation_gets_a_suggestion(): void {
+        [$course, $page, $item, $context] = $this->create_page();
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        set_status::apply($translation, 'review', 2, 0, $context);
+        $approved = translation_manager::get((int)$translation->id);
+        $this->assertSame(translation_manager::STATUS_REVIEWED, $approved->status);
+        $this->assertSame(translation_manager::ORIGIN_MACHINE, $approved->origin, 'Approved as is');
+
+        $this->change_source($course, $page, '<p>Hello <b>universe</b></p>');
+        $item = item_manager::get_item((int)$item->id);
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertSame($approved->text, $translation->text, 'The approved text stays until a reviewer decides');
+        $this->assertNotNull($translation->suggestion, 'The new machine text is a suggestion');
+        $this->assertSame(translation_manager::STATUS_STALE, $translation->status);
+        $this->assertGreaterThan(0, (int)$translation->reviewerid);
+    }
+
+    /**
      * Stale translation: "keep previous & mark reviewed" keeps the text and clears the stale state (UI-06).
      */
     public function test_keep_previous(): void {

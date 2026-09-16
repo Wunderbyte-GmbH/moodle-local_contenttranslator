@@ -120,7 +120,7 @@ final class translation_manager {
         if ($translation->locked) {
             return false;
         }
-        if ($translation->status === self::STATUS_REVIEWED) {
+        if ($translation->status === self::STATUS_REVIEWED || !empty($translation->reviewerid)) {
             return false;
         }
         if ($translation->origin === self::ORIGIN_HUMAN) {
