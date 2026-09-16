@@ -42,6 +42,8 @@ final class pipeline_test extends \advanced_testcase {
         set_config('targetlangs', 'de,fr', 'local_contenttranslator');
         set_config('engine', 'pseudo', 'local_contenttranslator');
         set_config('budgetchars', 1000000, 'local_contenttranslator');
+        // The site default is off; these tests exercise the automation, so switch it on explicitly.
+        set_config('defaultcourseenabled', 1, 'local_contenttranslator');
         set_config('enableauto', 1, 'local_contenttranslator');
         set_config('debounce', 0, 'local_contenttranslator');
         registry::reset();

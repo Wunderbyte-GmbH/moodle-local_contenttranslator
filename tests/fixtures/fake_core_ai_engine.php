@@ -67,7 +67,15 @@ class fake_core_ai_engine extends core_ai_engine {
      * @return self
      */
     public function fail(int $code, string $message): self {
-        $this->responses[] = new response_generate_text(false, $code, $message);
+        // Moodle 5.2 inserted a short "error" argument before "errormessage";
+        // named arguments keep the fixture working on both signatures.
+        $params = ['success' => false, 'errorcode' => $code, 'errormessage' => $message];
+        foreach ((new \ReflectionMethod(response_generate_text::class, '__construct'))->getParameters() as $param) {
+            if ($param->getName() === 'error') {
+                $params['error'] = $message;
+            }
+        }
+        $this->responses[] = new response_generate_text(...$params);
         return $this;
     }
 

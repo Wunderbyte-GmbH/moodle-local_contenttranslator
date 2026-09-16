@@ -46,6 +46,8 @@ final class automation_test extends \advanced_testcase {
         set_config('targetlangs', 'de', 'local_contenttranslator');
         set_config('engine', 'pseudo', 'local_contenttranslator');
         set_config('budgetchars', 1000000, 'local_contenttranslator');
+        // The site default is off; these tests exercise the automation, so switch it on explicitly.
+        set_config('defaultcourseenabled', 1, 'local_contenttranslator');
         set_config('debounce', 0, 'local_contenttranslator');
         registry::reset();
         engine_manager::reset();
@@ -99,6 +101,36 @@ final class automation_test extends \advanced_testcase {
         $this->assertTrue(budget::is_automation_enabled());
         set_config('enableauto', 0, 'local_contenttranslator');
         $this->assertFalse(budget::is_automation_enabled());
+    }
+
+    /**
+     * Out of the box no course is translated: the site default is off until an admin opts a course in.
+     */
+    public function test_course_default_is_off(): void {
+        unset_config('defaultcourseenabled', 'local_contenttranslator');
+        $course = $this->getDataGenerator()->create_course();
+        $this->assertFalse(config::is_auto_enabled_for_course((int)$course->id));
+
+        $page = $this->getDataGenerator()->create_module('page', ['course' => $course->id, 'content' => '<p>Not mine</p>']);
+        $item = item_manager::find('mod_page', 'page', 'content', (int)$page->id);
+        $this->assertNotNull($item, 'Content is still registered');
+        $this->assertCount(0, $this->translate_tasks(), 'Saving does not queue');
+
+        ob_start();
+        (new task\scan_task())->execute();
+        (new task\backlog_task())->execute();
+        ob_end_clean();
+        $this->assertCount(0, $this->translate_tasks(), 'Neither scan nor backlog queue work');
+
+        // Opting the course in is enough, no other setting changes.
+        config::save_override('course', (int)$course->id, ['enabled' => 1]);
+        cache_helper::purge();
+        \cache::make('local_contenttranslator', 'courseconfig')->purge();
+        $this->assertTrue(config::is_auto_enabled_for_course((int)$course->id));
+        ob_start();
+        (new task\scan_task())->execute();
+        ob_end_clean();
+        $this->assertCount(1, $this->translate_tasks(), 'The opted in course is queued');
     }
 
     /**

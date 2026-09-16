@@ -49,6 +49,8 @@ final class service_user_test extends \advanced_testcase {
         set_config('targetlangs', 'de', 'local_contenttranslator');
         set_config('engine', 'scripted', 'local_contenttranslator');
         set_config('budgetchars', 1000000, 'local_contenttranslator');
+        // The site default is off; these tests exercise the automation, so switch it on explicitly.
+        set_config('defaultcourseenabled', 1, 'local_contenttranslator');
         set_config('debounce', 0, 'local_contenttranslator');
         $this->engine = new scripted_engine('scripted', true, true, true);
         $this->redirectHook(register_engines::class, fn(register_engines $hook) => $hook->add_engine($this->engine));
