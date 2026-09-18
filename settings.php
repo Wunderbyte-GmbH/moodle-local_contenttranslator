@@ -119,8 +119,9 @@ if ($hassiteconfig) {
         $settings->add(new admin_setting_configtextarea(
             'local_contenttranslator/prompttemplate',
             get_string('prompttemplate', 'local_contenttranslator'),
-            get_string('prompttemplate_desc', 'local_contenttranslator'),
-            core_ai_engine::default_prompt(),
+            get_string('prompttemplate_desc', 'local_contenttranslator')
+                . html_writer::tag('pre', s(core_ai_engine::default_prompt())),
+            '',
             PARAM_RAW,
             80,
             14
@@ -162,6 +163,17 @@ if ($hassiteconfig) {
             0,
             PARAM_INT,
             12
+        ));
+        $warnchoices = [0 => get_string('budgetwarnpercent:off', 'local_contenttranslator')];
+        foreach ([50, 60, 70, 75, 80, 85, 90, 95] as $warnpercent) {
+            $warnchoices[$warnpercent] = $warnpercent . ' %';
+        }
+        $settings->add(new admin_setting_configselect(
+            'local_contenttranslator/budgetwarnpercent',
+            get_string('budgetwarnpercent', 'local_contenttranslator'),
+            get_string('budgetwarnpercent_desc', 'local_contenttranslator'),
+            80,
+            $warnchoices
         ));
         $settings->add(new admin_setting_configcheckbox(
             'local_contenttranslator/enableauto',
@@ -302,7 +314,7 @@ if ($hassiteconfig) {
             $settings->add(new admin_setting_heading(
                 $key . 'hdr',
                 get_string('langsettings', 'local_contenttranslator', $langs[$lang] ?? $lang),
-                ''
+                get_string('langsettings_desc', 'local_contenttranslator', $langs[$lang] ?? $lang)
             ));
             $settings->add(new admin_setting_configselect(
                 $key . 'visibility',
@@ -331,12 +343,14 @@ if ($hassiteconfig) {
                     'banner' => get_string('badge:banner', 'local_contenttranslator'),
                 ]
             ));
+            $siteengine = (string)(get_config('local_contenttranslator', 'engine') ?: 'core_ai');
             $settings->add(new admin_setting_configselect(
                 $key . 'engine',
-                get_string('engine', 'local_contenttranslator'),
+                get_string('langengine', 'local_contenttranslator'),
+                get_string('langengine_desc', 'local_contenttranslator'),
                 '',
-                '',
-                ['' => get_string('inherit', 'local_contenttranslator')] + $enginemenu
+                ['' => get_string('inherit', 'local_contenttranslator') . ' (' . ($enginemenu[$siteengine] ?? $siteengine) . ')']
+                    + $enginemenu
             ));
             $settings->add(new admin_setting_configselect(
                 $key . 'formality',

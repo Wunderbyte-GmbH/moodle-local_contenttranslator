@@ -24,10 +24,12 @@ Part of the plugin family described in the Wunderbyte epic *AI Content Translato
 * **Humans in control:** dashboard with per-language progress, side-by-side editor with source diff,
   history and rollback, review / lock workflow. Human-edited, reviewed or locked translations are never
   overwritten; a new machine translation is stored as a suggestion next to them.
-* **Cost control:** one monthly site budget in source characters, € estimates, 80 % / 100 % admin
-  notifications. Automatic and bulk translation stay off until a budget is set.
+* **Cost control:** one monthly site budget in source characters, € estimates, admin notifications at a
+  configurable warning level, when the budget is used up and when automatic translation pauses.
+  Automatic and bulk translation stay off until a budget is set.
 * **Translation memory** (exact match) isolated per tenant (site / category / course).
-* Backup/restore and course copy keep translations; privacy provider; capabilities; events.
+* Backup/restore and course copy keep translations and the course's translation settings (restored for a new
+  course or with "Overwrite course configuration", like all course settings); privacy provider; capabilities; events.
 
 ## Requirements
 
@@ -37,8 +39,8 @@ must be enabled (Site administration > General > AI).
 ## Setup
 
 1. Install both plugins and enable the **Content translator** filter (Site administration > Plugins >
-   Filters). Move it to the **top** of the filter order and enable *Filter all strings* so that course
-   and activity names are translated.
+   Filters). Move it to the **top** of the filter order and set *Apply to* to *Content and headings* so
+   that course, section and activity names are translated.
 2. Open *Site administration > Plugins > Local plugins > Content translator > Setup wizard*: choose the
    engine, the target languages, the service user used for cron AI calls (accept the AI policy for it)
    and a monthly budget.
@@ -101,6 +103,8 @@ setting. Plugins that render text without Moodle filters (e-mails, PDFs, table c
 * Quiz questions, site-level content (blocks, menus, badges), DeepL, TinyMCE plugin, fuzzy translation
   memory, glossaries and reviewer assignments are planned for later milestones.
 * Global search, calendar and a few core pages do not run text filters (core limitations).
+* Places from local_entities are not translated: when local_entities is installed, booking options show
+  the entity name instead of their own location and address fields, and entities are not a content source.
 
 ## Tests
 

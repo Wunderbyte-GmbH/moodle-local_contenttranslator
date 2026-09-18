@@ -52,29 +52,11 @@ $PAGE->set_pagelayout('incourse');
 $PAGE->navbar->add(get_string('dashboard', 'local_contenttranslator'), $dashboard);
 $PAGE->navbar->add(get_string('coursesettings', 'local_contenttranslator'));
 
-// Effective values *without* the course override, so the "inherit" labels are right.
+// Values *without* the course override, so the "inherit" labels show what inheriting would give.
 $override = config::get_override('course', $courseid);
-$effective = config::get_effective($courseid);
+$effective = config::get_effective($courseid, false);
 $inheritedlabels = $effective->inherited;
-if ($override) {
-    // Recompute what the parents provide.
-    $parenteffective = clone $effective;
-    if ($override->targetlangs !== null) {
-        $category = core_course_category::get($course->category, IGNORE_MISSING, true);
-        $parenteffective->targetlangs = config::get_site_target_langs();
-        $inheritedlabels['targetlangs'] = 'site';
-        if ($category) {
-            foreach (array_merge(array_reverse($category->get_parents()), [$category->id]) as $catid) {
-                $cat = config::get_override('category', (int)$catid);
-                if ($cat && $cat->targetlangs !== null) {
-                    $parenteffective->targetlangs = config::parse_langs($cat->targetlangs);
-                    $inheritedlabels['targetlangs'] = core_course_category::get($catid)->get_formatted_name();
-                }
-            }
-        }
-        $effective = $parenteffective;
-    }
-}
+
 $form = new course_config_form($url->out(false), ['effective' => $effective, 'inheritedlabels' => $inheritedlabels]);
 $form->set_data([
     'courseid' => $courseid,

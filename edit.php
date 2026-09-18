@@ -79,11 +79,14 @@ $PAGE->navbar->add(get_string('editor', 'local_contenttranslator'));
 if ($action !== '' && confirm_sesskey()) {
     if ($action === 'translatenow') {
         $translation = api::translate_now((int)$item->id, $lang, (int)$USER->id);
-        $message = $translation->status === translation_manager::STATUS_FAILED
-            ? get_string('translatefailed', 'local_contenttranslator', $translation->failreason)
-            : get_string('translated', 'local_contenttranslator');
-        redirect($url, $message, null, $translation->status === translation_manager::STATUS_FAILED
-            ? \core\output\notification::NOTIFY_ERROR : \core\output\notification::NOTIFY_SUCCESS);
+        // A failure is shown by the page itself (see below), so only success gets a message.
+        $failed = $translation->status === translation_manager::STATUS_FAILED;
+        redirect(
+            $url,
+            $failed ? '' : get_string('translated', 'local_contenttranslator'),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
     }
     if (in_array($action, set_status::ACTIONS, true)) {
         set_status::apply($translation, $action, (int)$USER->id, optional_param('historyid', 0, PARAM_INT), $context);

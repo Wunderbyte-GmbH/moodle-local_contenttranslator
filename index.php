@@ -224,12 +224,16 @@ foreach ($stats as $lang => $entry) {
 if (has_capability('local/contenttranslator:manage', context_system::instance())) {
     $limit = budget::get_limit();
     $used = budget::get_used();
+    $warnpercent = budget::get_warning_percent();
+    $changeurl = new moodle_url('/admin/settings.php', ['section' => 'local_contenttranslator'], 'admin-budgetchars');
     $statdata['budget'] = [
         'hasbudget' => $limit > 0,
         'limit' => number_format($limit),
         'used' => number_format($used),
         'percent' => $limit > 0 ? min(100, (int)round($used / $limit * 100)) : 0,
-        'warning' => $limit > 0 && $used / $limit >= 0.8,
+        'warning' => $limit > 0 && $warnpercent > 0 && $used / $limit * 100 >= $warnpercent,
+        'paused' => budget::is_paused(),
+        'changeurl' => $changeurl->out(false),
     ];
 }
 echo $OUTPUT->render_from_template('local_contenttranslator/stats', $statdata);
