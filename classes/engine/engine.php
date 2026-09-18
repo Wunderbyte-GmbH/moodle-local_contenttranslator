@@ -94,7 +94,8 @@ interface engine {
      * @param segment[] $segments
      * @param string $sourcelang
      * @param string $targetlang
-     * @param array $options contextid, userid, formality, styleguide, glossary (term => translation), strict (bool)
+     * @param array $options contextid, userid, formality, styleguide, glossary (term => translation), strict (bool),
+     *     previous (['source' => ..., 'translation' => ...] or null)
      * @return result[] keyed by segment id
      */
     public function translate_batch(array $segments, string $sourcelang, string $targetlang, array $options = []): array;

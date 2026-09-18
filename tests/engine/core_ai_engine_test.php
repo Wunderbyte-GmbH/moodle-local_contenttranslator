@@ -115,6 +115,27 @@ final class core_ai_engine_test extends \advanced_testcase {
     }
 
     /**
+     * Temporary overload is recognised by the status code alone, because Moodle 5.2 hides the provider message
+     * outside developer debugging.
+     */
+    public function test_overload_codes_without_message(): void {
+        $engine = (new fake_core_ai_engine())
+            ->fail(503, 'Error')
+            ->fail(529, 'Error')
+            ->fail(400, 'Error');
+
+        foreach ([503, 529] as $code) {
+            $result = $this->translate($engine);
+            $this->assertFalse($result->success);
+            $this->assertTrue($result->ratelimited, "HTTP $code is retried later");
+        }
+
+        $result = $this->translate($engine);
+        $this->assertFalse($result->success);
+        $this->assertFalse($result->ratelimited, 'HTTP 400 is a real failure');
+    }
+
+    /**
      * The prompt carries languages, register, style guide, context, the text and (on retry) the strict rule.
      */
     public function test_prompt(): void {
@@ -130,10 +151,30 @@ final class core_ai_engine_test extends \advanced_testcase {
         $this->assertStringContainsString('Context of the text: course "Cooking basics", field "content"', $prompt);
         $this->assertStringEndsWith("Text:\nHello <ph id=\"1\"/>world", $prompt);
         $this->assertStringNotContainsString('IMPORTANT', $prompt);
+        // Short capitalised titles were mistaken for proper names and left untranslated.
+        $this->assertStringContainsString('Translate titles and headings too, even when they are short or capitalised', $prompt);
+        $this->assertStringNotContainsString('Do not translate proper names', $prompt);
 
         $this->translate($engine, 'Hello <ph id="1"/>world', ['strict' => true]);
         $this->assertStringContainsString('IMPORTANT: Your previous answer altered the placeholders', (string)$engine->actions[1]
             ->get_configuration('prompttext'));
+    }
+
+    /**
+     * An earlier version corrected by a person is part of the prompt only when it is passed.
+     */
+    public function test_prompt_with_previous_version(): void {
+        $engine = (new fake_core_ai_engine())->respond('x')->respond('y');
+        $previous = ['source' => 'Welcome to the course', 'translation' => 'Willkommen im Kurs'];
+
+        $this->translate($engine, 'Hello <ph id="1"/>world', ['previous' => $previous]);
+        $prompt = (string)$engine->actions[0]->get_configuration('prompttext');
+        $this->assertStringContainsString('corrected by a person', $prompt);
+        $this->assertStringContainsString('Earlier text: Welcome to the course', $prompt);
+        $this->assertStringContainsString('Their translation: Willkommen im Kurs', $prompt);
+
+        $this->translate($engine);
+        $this->assertStringNotContainsString('corrected by a person', (string)$engine->actions[1]->get_configuration('prompttext'));
     }
 
     /**

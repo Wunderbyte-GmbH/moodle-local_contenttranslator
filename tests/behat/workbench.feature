@@ -27,7 +27,7 @@ Feature: Translation dashboard, editor and settings
     When I click on "Missing" "link" in the "Body of page one" "table_row"
     Then I should see "Translation editor"
     And I should see "Body of page one"
-    When I click on "Translate with AI now" "link"
+    When I click on "Translate now" "link"
     Then I should see "Translated."
     And I should see "pseudo"
     When I press "Save & mark reviewed"

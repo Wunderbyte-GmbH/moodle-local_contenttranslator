@@ -45,24 +45,41 @@ class course_config_form extends \moodleform {
         ]);
         $mform->addHelpButton('enabled', 'courseenabled', 'local_contenttranslator');
 
+        $from = $this->_customdata['inheritedlabels']['targetlangs'];
+        $from = $from === 'site' ? get_string('inherit:site', 'local_contenttranslator') : $from;
         $mform->addElement(
             'advcheckbox',
             'inherittargetlangs',
-            get_string('targetlangs', 'local_contenttranslator'),
-            get_string('inheritfrom', 'local_contenttranslator', $this->_customdata['inheritedlabels']['targetlangs'])
+            get_string('coursetargetlangs', 'local_contenttranslator'),
+            get_string('inheritfrom', 'local_contenttranslator', $from)
             . ': ' . implode(', ', array_map([config::class, 'lang_name'], $effective->targetlangs))
         );
+        $mform->addHelpButton('inherittargetlangs', 'coursetargetlangs', 'local_contenttranslator');
+
         $mform->setDefault('inherittargetlangs', 1);
         $langs = get_string_manager()->get_list_of_translations(true);
         $select = $mform->addElement('select', 'targetlangs', get_string('courselangs', 'local_contenttranslator'), $langs);
         $select->setMultiple(true);
         $mform->hideIf('targetlangs', 'inherittargetlangs', 'checked');
 
+        if ($effective->visibility) {
+            $visibilitymodes = [$effective->visibility];
+        } else {
+            // Not set by a category: the site setting of each language applies.
+            $visibilitymodes = array_unique(array_map(
+                fn(string $lang): string => config::get_lang_setting($lang, 'visibility', config::VISIBILITY_IMMEDIATE),
+                $effective->targetlangs
+            ));
+        }
+        $visibilitydefault = count($visibilitymodes) === 1
+            ? get_string('visibility:' . reset($visibilitymodes), 'local_contenttranslator')
+            : get_string('visibility:perlanguage', 'local_contenttranslator');
         $mform->addElement('select', 'visibility', get_string('visibility', 'local_contenttranslator'), [
-            '' => $inherit,
+            '' => $inherit . ' (' . $visibilitydefault . ')',
             config::VISIBILITY_IMMEDIATE => get_string('visibility:immediate', 'local_contenttranslator'),
             config::VISIBILITY_REVIEWED => get_string('visibility:reviewed', 'local_contenttranslator'),
         ]);
+
         $mform->addHelpButton('visibility', 'visibility', 'local_contenttranslator');
 
         $mform->addElement('select', 'externalallowed', get_string('externalallowed', 'local_contenttranslator'), [

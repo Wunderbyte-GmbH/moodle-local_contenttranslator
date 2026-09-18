@@ -34,7 +34,9 @@ class restore_local_contenttranslator_plugin extends restore_local_plugin {
      * @return restore_path_element[]
      */
     protected function define_course_plugin_structure() {
-        return $this->paths('course');
+        return array_merge($this->paths('course'), [
+            new restore_path_element('ctconfig', $this->get_pathfor('/ctconfig')),
+        ]);
     }
 
     /**
@@ -86,6 +88,22 @@ class restore_local_contenttranslator_plugin extends restore_local_plugin {
      */
     public function process_cttranslation_course(array $data): void {
         $this->store_translation((object)$data);
+    }
+
+    /**
+     * Translation settings of the course. Moodle only calls this for a new course or when the course configuration
+     * is overwritten, so the settings from the backup always apply.
+     *
+     * @param array $data
+     */
+    public function process_ctconfig(array $data): void {
+        $targetlangs = (string)($data['targetlangs'] ?? '');
+        \local_contenttranslator\config::save_override('course', (int)$this->task->get_courseid(), [
+            'enabled' => (int)$data['enabled'],
+            'targetlangs' => $targetlangs === '' ? null : explode(',', $targetlangs),
+            'visibility' => $data['visibility'] ?? null,
+            'externalallowed' => (int)$data['externalallowed'],
+        ]);
     }
 
     /**

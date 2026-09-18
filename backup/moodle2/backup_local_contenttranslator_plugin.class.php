@@ -23,7 +23,7 @@
  */
 class backup_local_contenttranslator_plugin extends backup_local_plugin {
     /**
-     * Course level: items of the course record itself.
+     * Course level: items of the course record itself and the course's own translation settings.
      *
      * @return backup_plugin_element
      */
@@ -35,6 +35,16 @@ class backup_local_contenttranslator_plugin extends backup_local_plugin {
             $wrapper,
             'i.courseid = ? AND i.itemtype = ?',
             [backup::VAR_COURSEID, backup_helper::is_sqlparam('course')]
+        );
+
+        // Translation settings of the course (on/off, languages, visibility, external engines), if it has its own.
+        $config = new backup_nested_element('ctconfig', ['id'], ['enabled', 'targetlangs', 'visibility', 'externalallowed']);
+        $wrapper->add_child($config);
+        $config->set_source_sql(
+            "SELECT id, enabled, targetlangs, visibility, externalallowed
+               FROM {local_contenttranslator_cfg}
+              WHERE instancetype = ? AND instanceid = ?",
+            [backup_helper::is_sqlparam('course'), backup::VAR_COURSEID]
         );
         return $plugin;
     }

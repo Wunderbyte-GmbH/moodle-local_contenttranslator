@@ -130,11 +130,13 @@ final class config {
      * Effective settings for a course, walking course -> categories -> site.
      *
      * @param int $courseid
+     * @param bool $withcourse False: leave out the course's own override (what "inherit" would give).
      * @return \stdClass enabled, targetlangs, visibility (per language), externalallowed, inherited (labels)
      */
-    public static function get_effective(int $courseid): \stdClass {
+    public static function get_effective(int $courseid, bool $withcourse = true): \stdClass {
         $cache = \cache::make('local_contenttranslator', 'courseconfig');
-        $cached = $cache->get('c' . $courseid);
+        $cachekey = ($withcourse ? 'c' : 'p') . $courseid;
+        $cached = $cache->get($cachekey);
         if ($cached !== false) {
             return (object)$cached;
         }
@@ -164,7 +166,9 @@ final class config {
                 }
             }
             $chain = array_reverse($chain); // Top category first.
-            $chain[] = ['course', $courseid, get_string('course')];
+            if ($withcourse) {
+                $chain[] = ['course', $courseid, get_string('course')];
+            }
         }
         foreach ($chain as [$type, $id, $label]) {
             $override = self::get_override($type, $id);
@@ -188,7 +192,7 @@ final class config {
                 $result->inherited['externalallowed'] = $type === 'course' ? 'course' : $label;
             }
         }
-        $cache->set('c' . $courseid, (array)$result);
+        $cache->set($cachekey, (array)$result);
         return $result;
     }
 

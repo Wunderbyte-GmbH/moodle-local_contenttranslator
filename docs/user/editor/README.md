@@ -8,7 +8,7 @@
 
 1. From the dashboard, click a status badge. The editor opens with the source on the left and the
    translation on the right (TinyMCE for HTML fields, a text box for names).
-2. Press **Translate with AI now** for an immediate machine translation (runs as you).
+2. Press **Translate now** for an immediate machine translation (runs as you).
 3. Correct the text, then **Save & mark reviewed** or **Save & next** (Ctrl+Enter) to jump to the next
    item needing attention in the same course and language.
 
@@ -37,7 +37,7 @@
 
 | Action | Effect | Capability |
 |---|---|---|
-| Translate with AI now | immediate machine translation; for reviewed/locked translations it becomes a suggestion | translate |
+| Translate now | immediate machine translation; for reviewed/locked translations it becomes a suggestion | translate |
 | Save | stores your text as *Edited* (origin human) | translate |
 | Save & mark reviewed | stores and sets *Reviewed* | review |
 | Save & next | stores and opens the next item that is machine, stale, failed or has a suggestion | translate |

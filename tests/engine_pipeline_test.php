@@ -374,4 +374,31 @@ final class engine_pipeline_test extends \advanced_testcase {
             'Only passed through rows are queued again'
         );
     }
+
+    /**
+     * After a source change, a translation a person corrected is sent along as reference, so the engine can keep
+     * that wording; a pure machine translation is not.
+     */
+    public function test_human_correction_is_sent_as_reference(): void {
+        global $DB, $USER;
+        $engine = $this->add_engine(new scripted_engine());
+        set_config('engine', 'scripted', 'local_contenttranslator');
+        [$course, $page, $item] = $this->create_page('<p>Welcome to the <b>course</b></p>');
+
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertNull($engine->calls[0]['options']['previous'], 'No person worked on it yet');
+
+        translation_manager::save_human($translation, '<p>Willkommen im <b>Kurs</b></p>', FORMAT_HTML, (int)$USER->id, false);
+        $DB->set_field('page', 'content', '<p>Welcome to the <b>course</b>, have fun</p>', ['id' => $page->id]);
+        item_manager::sync_course((int)$course->id);
+        $item = item_manager::find('mod_page', 'page', 'content', (int)$page->id);
+
+        translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertCount(2, $engine->calls);
+        $this->assertSame(
+            ['source' => 'Welcome to the course', 'translation' => 'Willkommen im Kurs'],
+            $engine->calls[1]['options']['previous'],
+            'Earlier source and the correction, as plain text'
+        );
+    }
 }

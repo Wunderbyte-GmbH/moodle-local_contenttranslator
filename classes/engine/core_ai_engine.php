@@ -86,9 +86,10 @@ class core_ai_engine implements engine {
             . "- Placeholders of the form <ph id=\"N\"/> stand for markup and must be kept EXACTLY as they are. "
             . "Keep every placeholder exactly once, keep their order, and place them so the sentence stays grammatical.\n"
             . "- Preserve line breaks and paragraph structure.\n"
-            . "- Do not translate proper names, product names, course codes, file names or anything that looks like code.\n"
+            . "- Translate titles and headings too, even when they are short or capitalised. Keep unchanged only "
+            . "names of people, brands and products, course codes, file names and anything that looks like code.\n"
             . "- If the text is already in {targetlang}, return it unchanged.\n"
-            . "{formality}{styleguide}{glossary}{context}\n"
+            . "{formality}{styleguide}{glossary}{previous}{context}\n"
             . "Text:\n{text}";
     }
 
@@ -134,6 +135,13 @@ class core_ai_engine implements engine {
             }
             $glossary = "- Use these terms:\n" . implode("\n", $lines) . "\n";
         }
+        $previous = '';
+        if (!empty($options['previous'])) {
+            $previous = "- An earlier version of this text was translated and corrected by a person. Keep their wording, "
+                . "terms and style wherever the text has not changed.\n"
+                . "  Earlier text: " . $options['previous']['source'] . "\n"
+                . "  Their translation: " . $options['previous']['translation'] . "\n";
+        }
         $context = '';
         if ($segment->context !== '') {
             $context = "\nContext of the text: " . $segment->context . "\n";
@@ -148,6 +156,7 @@ class core_ai_engine implements engine {
             '{formality}' => $formality,
             '{styleguide}' => $styleguide,
             '{glossary}' => $glossary,
+            '{previous}' => $previous,
             '{context}' => $context,
             '{text}' => $segment->text,
         ]);
@@ -193,7 +202,7 @@ class core_ai_engine implements engine {
         if (!$response->get_success()) {
             $code = (int)$response->get_errorcode();
             $message = (string)$response->get_errormessage();
-            $ratelimited = $code === 429 || $this->is_rate_limit_message($message);
+            $ratelimited = in_array($code, [429, 503, 529], true) || $this->is_rate_limit_message($message);
             return new result($segment->id, false, '', trim($code . ' ' . $message), $ratelimited);
         }
         $data = $response->get_response_data();

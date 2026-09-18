@@ -50,8 +50,8 @@ Important distinctions for AI/explain tasks:
 
 1. Install `local_contenttranslator` and `filter_contenttranslator`.
 2. Enable the filter and move it to the **top** of the filter order:
-   [/admin/filters.php](/admin/filters.php). Enable *Filter all strings* (`filterall`) in
-   [/admin/search.php?query=filterall](/admin/search.php?query=filterall).
+   [/admin/filters.php](/admin/filters.php). On the same page set *Apply to* to
+   *Content and headings*.
 3. Open the setup wizard: [/local/contenttranslator/wizard.php](/local/contenttranslator/wizard.php).
    Choose the engine, target languages, a service user (accept the AI policy for it) and a monthly budget.
 4. Check *Site administration → Reports → System status*: the "Content translator setup" check lists

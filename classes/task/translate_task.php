@@ -80,6 +80,7 @@ class translate_task extends \core\task\adhoc_task {
                 $done++;
             } catch (budget_exceeded_exception $e) {
                 mtrace('local_contenttranslator: monthly budget exhausted, pausing.');
+                budget::notify_thresholds(true);
                 return;
             } catch (rate_limited_exception $e) {
                 mtrace('local_contenttranslator: rate limited, will retry later.');
@@ -114,10 +115,24 @@ class translate_task extends \core\task\adhoc_task {
             // Nothing is sent anywhere; the pipeline reports "no engine" per item.
             return null;
         }
+        $available = false;
+        $unavailable = null;
         foreach ($engines as $engine) {
-            if (!$engine->is_external() || ($userid && $engine->is_available_for_user($userid))) {
+            if (!$engine->is_external()) {
                 return null;
             }
+            if (!$engine->is_available()) {
+                // Provider switched off or "Generate text" disabled: not a matter of the service user.
+                $unavailable = $unavailable ?? $engine;
+                continue;
+            }
+            $available = true;
+            if ($userid && $engine->is_available_for_user($userid)) {
+                return null;
+            }
+        }
+        if (!$available) {
+            return get_string('check:engineunavailable', 'local_contenttranslator', $unavailable->get_display_name());
         }
         return get_string($userid ? 'check:serviceuserpolicy' : 'check:noserviceuser', 'local_contenttranslator');
     }

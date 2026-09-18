@@ -179,10 +179,16 @@ final class setup_check_test extends \advanced_testcase {
     public function test_ai_engine_without_provider(): void {
         $this->healthy_setup();
         set_config('engine', 'core_ai', 'local_contenttranslator');
+        // A service user without the policy: not the problem while the provider is off, so it is not reported.
+        set_config('serviceuserid', $this->getDataGenerator()->create_user()->id, 'local_contenttranslator');
         $result = $this->run_check();
         $enginename = get_string('engine:core_ai', 'local_contenttranslator');
         $this->assertStringContainsString(
             get_string('check:engineunavailable', 'local_contenttranslator', $enginename),
+            $result->get_details()
+        );
+        $this->assertStringNotContainsString(
+            get_string('check:serviceuserpolicy', 'local_contenttranslator'),
             $result->get_details()
         );
     }

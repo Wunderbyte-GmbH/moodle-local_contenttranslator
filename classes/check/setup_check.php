@@ -94,7 +94,7 @@ class setup_check extends check {
             if (!$serviceuserid) {
                 $problems[] = get_string('check:noserviceuser', 'local_contenttranslator');
                 $status = $status === result::ERROR ? $status : result::WARNING;
-            } else if (!$engine->is_available_for_user($serviceuserid)) {
+            } else if ($engine->is_available() && !$engine->is_available_for_user($serviceuserid)) {
                 $problems[] = get_string('check:serviceuserpolicy', 'local_contenttranslator');
                 $status = $status === result::ERROR ? $status : result::WARNING;
             }

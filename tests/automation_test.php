@@ -320,7 +320,7 @@ final class automation_test extends \advanced_testcase {
     }
 
     /**
-     * Admins are notified once at 80 % and once at 100 % per month (AUTO-13).
+     * Admins are notified once at the warning level (80 % by default) and once at 100 % per month (AUTO-13).
      */
     public function test_budget_notifications(): void {
         set_config('budgetchars', 100, 'local_contenttranslator');
@@ -339,8 +339,9 @@ final class automation_test extends \advanced_testcase {
         $this->assertSame(1, $messages->count(), 'No repeat within the same level');
         $log(15);
         $this->assertSame(2, $messages->count());
-        $this->assertStringContainsString('100 %', $messages->get_messages()[1]->subject);
+        $this->assertStringContainsString('used up', $messages->get_messages()[1]->subject);
         $this->assertSame('budget', $messages->get_messages()[1]->eventtype);
+        $this->assertStringContainsString('/local/contenttranslator/index.php', $messages->get_messages()[1]->contexturl);
 
         $thresholds = array_filter($events->get_events(), fn($e) => $e instanceof event\budget_threshold_reached);
         $this->assertCount(2, $thresholds);
@@ -407,5 +408,61 @@ final class automation_test extends \advanced_testcase {
         $this->assertSame(translation_manager::ORIGIN_MACHINE, $first->origin, 'Site TM entries are not visible to a tenant');
         $this->assertSame(translation_manager::ORIGIN_MACHINE, $second->origin, 'Other tenant: no TM hit');
         $this->assertEquals(2, $DB->count_records('local_contenttranslator_use'));
+    }
+
+    /**
+     * The warning level is a setting; off means no warning, but used up is still reported.
+     */
+    public function test_budget_warning_level_setting(): void {
+        set_config('budgetchars', 100, 'local_contenttranslator');
+        set_config('budgetwarnpercent', 90, 'local_contenttranslator');
+        $messages = $this->redirectMessages();
+        $log = fn(int $chars) => budget::log_usage([
+            'engine' => 'pseudo', 'sourcelang' => 'en', 'targetlang' => 'de', 'chars' => $chars, 'triggertype' => 'bulk',
+        ]);
+
+        $log(85);
+        $this->assertSame(0, $messages->count(), 'Below the configured 90 %');
+        $log(5);
+        $this->assertSame(1, $messages->count());
+        $this->assertStringContainsString('90 %', $messages->get_messages()[0]->subject);
+
+        // Warning switched off and a fresh budget: only "used up" arrives.
+        set_config('budgetnotified', '', 'local_contenttranslator');
+        set_config('budgetwarnpercent', 0, 'local_contenttranslator');
+        set_config('budgetchars', 200, 'local_contenttranslator');
+        $messages->clear();
+        $log(90);
+        $this->assertSame(0, $messages->count(), 'Warning off');
+        $log(20);
+        $this->assertSame(1, $messages->count());
+        $this->assertStringContainsString('used up', $messages->get_messages()[0]->subject);
+        $messages->close();
+    }
+
+    /**
+     * Raising the budget starts the levels over; the stored format of earlier versions is still understood.
+     */
+    public function test_budget_raise_and_old_state_format(): void {
+        set_config('budgetchars', 100, 'local_contenttranslator');
+        // Earlier versions stored {"YYYYMM": highest level}: the 80 % warning was already sent this month.
+        set_config('budgetnotified', json_encode([date('Ym') => 80]), 'local_contenttranslator');
+        $messages = $this->redirectMessages();
+        $log = fn(int $chars) => budget::log_usage([
+            'engine' => 'pseudo', 'sourcelang' => 'en', 'targetlang' => 'de', 'chars' => $chars, 'triggertype' => 'bulk',
+        ]);
+
+        $log(85);
+        $this->assertSame(0, $messages->count(), 'Warning already sent under the old format');
+        $log(15);
+        $this->assertSame(1, $messages->count());
+        $this->assertTrue(budget::is_paused());
+
+        set_config('budgetchars', 200, 'local_contenttranslator');
+        $this->assertFalse(budget::is_paused(), 'Raised budget: running again');
+        $log(60);
+        $this->assertSame(2, $messages->count(), 'Levels start over for the new budget');
+        $this->assertStringContainsString('80 %', $messages->get_messages()[1]->subject);
+        $messages->close();
     }
 }

@@ -109,4 +109,28 @@ final class tm {
         global $DB;
         $DB->execute("UPDATE {local_contenttranslator_tm} SET usecount = usecount + 1 WHERE id = :id", ['id' => $id]);
     }
+
+    /**
+     * Whether two source texts carry the same markup. The memory is keyed on the visible text only, so a hit for
+     * a text with different formatting (a paragraph instead of a code block, another link) must not be reused.
+     *
+     * @param string $a
+     * @param string $b
+     * @return bool
+     */
+    public static function same_markup(string $a, string $b): bool {
+        return self::markup($a) === self::markup($b);
+    }
+
+    /**
+     * The tags of a text in order, with file URLs neutralised and whitespace collapsed.
+     *
+     * @param string $text
+     * @return string[]
+     */
+    private static function markup(string $text): array {
+        $text = preg_replace(normaliser::FILEURL_REGEX, '@@FILE@@/', $text);
+        preg_match_all('~<[^>]+>~', $text, $matches);
+        return array_map(fn(string $tag): string => \core_text::strtolower(preg_replace('~\s+~', ' ', $tag)), $matches[0]);
+    }
 }

@@ -28,6 +28,10 @@
 | Feedback | item name and label |
 | Booking (mod_booking) | option title, description, location, institution, address, before/after booking texts, notification text |
 
+**Booking with local_entities:** when local_entities is installed, booking options show the place of an
+entity instead of their own *location* and *address* fields. Entity names and descriptions are not translated;
+learners see them in the original language.
+
 Third-party plugins add their own sources through the
 [Content source API](../../developer-guides/CONTENT_SOURCE_API.md).
 
@@ -72,5 +76,5 @@ follow the records through course copies.
 
 Learner-generated content (forum posts, submissions, comments, wiki pages, database entries), quiz
 questions (planned), site-level content like blocks and menus (planned), H5P/SCORM internals, files,
-video subtitles, language packs. Global search, the calendar and a few core pages do not run text
+video subtitles, language packs, places from local_entities (see section above). Global search, the calendar and a few core pages do not run text
 filters at all (core limitations).

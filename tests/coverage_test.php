@@ -288,4 +288,19 @@ final class coverage_test extends \advanced_testcase {
             );
         }
     }
+
+    /**
+     * Auto-discovery skips activity columns that hold settings instead of content (found on a live site).
+     */
+    public function test_non_content_columns_are_skipped(): void {
+        $this->resetAfterTest();
+        $settings = [['lesson', 'conditions'], ['lti', 'secureicon'], ['booking', 'banusernames'], ['booking', 'categoryid']];
+        foreach ($settings as [$table, $column]) {
+            $this->assertTrue(subtable_map::is_skipped_column($table, $column), "$table.$column is not content");
+        }
+        $content = [['lesson', 'name'], ['lti', 'name'], ['booking', 'intro'], ['booking_options', 'location']];
+        foreach ($content as [$table, $column]) {
+            $this->assertFalse(subtable_map::is_skipped_column($table, $column), "$table.$column is content");
+        }
+    }
 }

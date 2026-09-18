@@ -8,7 +8,7 @@
 
 1. Install both plugins (`local/contenttranslator`, `filter/contenttranslator`) and run the upgrade.
 2. Enable the **Content translator** filter and move it to the top: [/admin/filters.php](/admin/filters.php).
-3. Enable *Filter all strings*: [/admin/search.php?query=filterall](/admin/search.php?query=filterall).
+3. On the same page set *Apply to* of the filter to *Content and headings*.
 4. Run the setup wizard: [/local/contenttranslator/wizard.php](/local/contenttranslator/wizard.php).
 5. Verify with *Reports → System status → Content translator setup*.
 
@@ -40,8 +40,10 @@ The filter is the only way to intercept rendered text in Moodle. Two things matt
 
 - **Order.** The Content translator filter must be **first**, so it sees the untouched source text
   before other filters (multilang, glossary auto-linking, emoticons, ...) change it.
-- **Filter all strings.** Course names, section names and activity names go through `format_string()`.
-  Filters only touch those when `filterall` is on.
+- **Content and headings.** Course names, section names and activity names go through `format_string()`.
+  Filters only touch those when their *Apply to* setting is *Content and headings*. Moodle has no separate
+  switch for this any more: it turns the hidden `filterall` setting on as soon as one filter applies to
+  headings.
 
 Both are checked by the system status check.
 
@@ -74,7 +76,7 @@ markup twice. Per language you can pick a different engine. Further engines plug
 
 Moodle's AI subsystem requires every user to accept the AI policy before actions run in their name.
 
-- Interactive **Translate with AI now** runs as the clicking user (they see the normal policy dialog
+- Interactive **Translate now** runs as the clicking user (they see the normal policy dialog
   the first time they use any AI feature).
 - Automatic jobs (on save, backlog, bulk) run as the **translation service user**. The wizard can create
   a dedicated "Content Translator" user (auth `nologin`, not enrollable) and accept the policy for it.
@@ -88,7 +90,7 @@ to run and the status check turns yellow. Costs are still attributed per course 
 *Site administration → Reports → System status → Content translator setup* reports:
 
 - no target languages, no budget
-- filter missing / disabled / not first, `filterall` off
+- filter missing / disabled / not first, not applied to headings
 - service user missing or without policy acceptance
 - default engine unavailable (no AI provider with *Generate text*)
 
@@ -97,12 +99,13 @@ to run and the status check turns yellow. Costs are still attributed per course 
 | Setting | Default | Meaning |
 |---|---|---|
 | Target languages | – | site-level list |
-| Automatic translation on for new courses | on | inherited by courses without own setting |
+| Automatic translation for all courses by default | off | inherited by **every** course without its own setting, existing courses included; switching it on translates all of them and uses budget |
 | Default engine / Fallback engine | core_ai / none | routing |
 | Price per 1M characters (per engine) | 0 | estimates only |
-| Prompt template | shipped prompt | placeholders `{sourcelang} {targetlang} {formality} {styleguide} {glossary} {context} {text}` |
+| Prompt template | shipped prompt | placeholders `{sourcelang} {targetlang} {formality} {styleguide} {glossary} {previous} {context} {text}`; `{glossary}` is reserved and currently always empty |
 | Translation service user | – | see above |
 | Monthly budget (characters) | 0 | see [Budget](../budget/README.md) |
+| Budget warning at | 80 % | notification to administrators at this share of the budget; *Off* disables only this warning |
 | Enable automatic translation | on | master switch (needs budget) |
 | Debounce (seconds) | 120 | wait after a save before translating |
 | Backlog window start / end | 0 / 0 | hours; equal = always |

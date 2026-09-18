@@ -142,6 +142,31 @@ final class service_user_test extends \advanced_testcase {
     }
 
     /**
+     * The pause reason names the real problem: provider off, no (or a deleted) service user, or the policy.
+     */
+    public function test_pause_reason_names_the_real_problem(): void {
+        $course = $this->getDataGenerator()->create_course();
+        $reason = fn(int $userid) => task\translate_task::get_service_user_problem((int)$course->id, 'de', $userid);
+        $serviceuser = $this->getDataGenerator()->create_user();
+
+        // Engine available.
+        $this->assertSame(get_string('check:noserviceuser', 'local_contenttranslator'), $reason(0));
+        $this->assertSame(get_string('check:serviceuserpolicy', 'local_contenttranslator'), $reason((int)$serviceuser->id));
+        $deleted = $this->getDataGenerator()->create_user();
+        delete_user($deleted);
+        $this->assertSame(get_string('check:noserviceuser', 'local_contenttranslator'), $reason((int)$deleted->id));
+        \core_ai\manager::user_policy_accepted((int)$serviceuser->id, \context_system::instance()->id);
+        $this->assertNull($reason((int)$serviceuser->id));
+
+        // Provider switched off: only that is reported, whatever the service user.
+        $this->engine = new scripted_engine('scripted', true, false, true);
+        engine_manager::reset();
+        $expected = get_string('check:engineunavailable', 'local_contenttranslator', 'Scripted scripted');
+        $this->assertSame($expected, $reason((int)$serviceuser->id));
+        $this->assertSame($expected, $reason(0));
+    }
+
+    /**
      * "Translate now" runs as the clicking user and needs that user's policy acceptance, no service user.
      */
     public function test_translate_now_runs_as_clicking_user(): void {

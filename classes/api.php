@@ -133,14 +133,23 @@ final class api {
             $where .= ' AND (i.categoryid = :categoryid OR i.courseid = 0)';
             $params['categoryid'] = (int)substr($tenantkey, 9);
         }
-        $sql = "SELECT i.id AS itemid, i.sourcelang, i.courseid, i.contextid, i.isstring,
-                       t.id AS translationid, t.text, t.format, t.status, t.origin, t.locked, t.reviewerid, t.timemodified
+        $sql = "SELECT i.id AS itemid, i.sourcelang, i.courseid, i.contextid, i.isstring, i.sourcehash AS itemhash,
+                       t.id AS translationid, t.text, t.format, t.status, t.origin, t.locked, t.reviewerid, t.timemodified,
+                       t.sourcehash AS translationhash
                   FROM {local_contenttranslator_item} i
              LEFT JOIN {local_contenttranslator_tr} t ON t.itemid = i.id AND t.targetlang = :lang
                  WHERE $where
               ORDER BY i.id";
         $rows = [];
         foreach ($DB->get_records_sql($sql, $params, 0, 50) as $row) {
+            $status = $row->status;
+            if ($status === translation_manager::STATUS_FAILED && (string)$row->text !== '') {
+                // A failed attempt keeps the earlier text: show it for what it is, a translation of the current
+                // source or of an earlier one.
+                $status = $row->translationhash === $row->itemhash
+                    ? translation_manager::STATUS_MACHINE
+                    : translation_manager::STATUS_STALE;
+            }
             $rows[] = [
                 'itemid' => (int)$row->itemid,
                 'sourcelang' => $row->sourcelang,
@@ -149,7 +158,7 @@ final class api {
                 'translationid' => $row->translationid ? (int)$row->translationid : null,
                 'text' => $row->text,
                 'format' => (int)($row->format ?? FORMAT_HTML),
-                'status' => $row->status,
+                'status' => $status,
                 'origin' => $row->origin,
                 'locked' => (int)$row->locked,
                 'reviewerid' => (int)$row->reviewerid,

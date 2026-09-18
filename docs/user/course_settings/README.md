@@ -22,10 +22,14 @@ value and leave the others inherited. Category overrides are stored in the same 
 
 | Value | Site default | Typical override |
 |---|---|---|
-| Automatic translation | *Automatic translation on for new courses* | switch off for archive or confidential courses |
+| Automatic translation | *Automatic translation for all courses by default* (off) | switch on for the courses that should be translated; off for archive or confidential courses |
 | Target languages | site list | a tenant course with its own languages |
 | Visibility | per language setting | "reviewed only" for legally sensitive courses |
 | External engines allowed | yes | no for confidential content (only local engines are used) |
+
+These settings travel with a course backup and a course copy. Like all course settings, they are
+restored into a new course, and into an existing course only when *Overwrite course configuration*
+is chosen during the restore.
 
 ## Multi-tenant platforms
 

@@ -8,7 +8,8 @@
 
 1. Set a **Monthly budget (characters)** in the wizard (suggested: 2,000,000).
 2. Enter a **Price per 1M characters** for your engine so the dashboard can show € estimates.
-3. Watch the budget bar on the site dashboard; administrators are notified at 80 % and 100 %.
+3. Watch the budget bar on the site dashboard; administrators are notified at the warning level
+   (80 % by default), when the budget is used up and when it no longer fits the next text.
 
 ---
 
@@ -32,7 +33,7 @@ and DeepL, and enforceable. Token usage of the Moodle AI subsystem is recorded a
 ## 2. Safe default: nothing automatic without a budget
 
 On a fresh install automatic (on save, backlog) and bulk translation are **off until a monthly budget
-is set**. On-demand *Translate with AI now* in the editor works immediately. No surprise bills.
+is set**. On-demand *Translate now* in the editor works immediately. No surprise bills.
 
 ## 3. What counts
 
@@ -44,10 +45,22 @@ is set**. On-demand *Translate with AI now* in the editor works immediately. No 
 
 ## 4. Notifications and pausing
 
-- At **80 %** all site administrators receive a notification (message provider *Translation budget
-  and automation notices*).
-- At **100 %** automatic and bulk jobs pause; pending items stay queued and continue next month.
-- Both are sent once per month; the event `budget_threshold_reached` is triggered.
+All site administrators receive these notifications (message provider *Translation budget and
+automation notices*). Clicking one opens the site dashboard of the content translator.
+
+| When | Notification |
+|---|---|
+| The share set in *Budget warning at* is used (default 80 %, can be switched off) | *Translation budget: N % used* |
+| The budget is used up | *Translation budget used up: automatic translation paused* |
+| The next text does not fit into the rest of the budget | *Automatic translation paused: budget not enough for further texts* |
+
+- Automatic and bulk jobs pause once the next text does not fit; pending items stay queued and continue
+  next month or as soon as the budget is raised.
+- Each notification is sent once per month. "Used up" and "not enough" mean the same for the reader,
+  so only the first of the two is sent.
+- Raising the budget starts over: the notifications can arrive again for the new amount.
+- While paused, the dashboard shows a red notice above the budget bar with a *Change budget* link.
+- Each notification triggers the event `budget_threshold_reached`.
 
 ## 5. Estimates
 

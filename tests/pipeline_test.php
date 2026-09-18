@@ -116,6 +116,182 @@ final class pipeline_test extends \advanced_testcase {
     }
 
     /**
+     * The memory is keyed on the visible text, so a hit is only reused when the formatting matches too.
+     */
+    public function test_tm_hit_needs_same_markup(): void {
+        global $DB;
+        [$course, $page, $item] = $this->create_course_with_page('<p>Hello world</p>');
+        translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+
+        // Same words as a list: the memory hit would turn the list into a paragraph, so the engine translates it.
+        $list = $this->getDataGenerator()->create_module(
+            'page',
+            ['course' => $course->id, 'name' => 'List', 'content' => '<ul><li>Hello world</li></ul>']
+        );
+        // Same words and same formatting: reused from the memory.
+        $same = $this->getDataGenerator()->create_module(
+            'page',
+            ['course' => $course->id, 'name' => 'Same', 'content' => '<p>Hello world</p>']
+        );
+        item_manager::sync_course((int)$course->id);
+
+        $listitem = item_manager::find('mod_page', 'page', 'content', (int)$list->id);
+        $this->assertSame($item->sourcehash, $listitem->sourcehash, 'Both texts share the memory key');
+        $translation = translator::translate_item($listitem, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertSame(translation_manager::ORIGIN_MACHINE, $translation->origin);
+        $this->assertStringContainsString('<ul><li>', $translation->text);
+        $this->assertStringNotContainsString('<p>', $translation->text);
+        $this->assertEquals(2, $DB->count_records('local_contenttranslator_use'));
+
+        $sameitem = item_manager::find('mod_page', 'page', 'content', (int)$same->id);
+        $translation = translator::translate_item($sameitem, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertSame(translation_manager::ORIGIN_TM, $translation->origin);
+        $this->assertEquals(2, $DB->count_records('local_contenttranslator_use'));
+    }
+
+    /**
+     * Re-translating asks the engine again instead of returning the item's own translation from the memory,
+     * so a changed style guide takes effect; other items with the same text still use the memory.
+     */
+    public function test_retranslate_skips_own_memory_entry(): void {
+        global $DB;
+        [$course, $page, $item] = $this->create_course_with_page();
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertEquals(1, $DB->count_records('local_contenttranslator_use'));
+
+        translation_manager::requeue($translation, 2);
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertSame(translation_manager::ORIGIN_MACHINE, $translation->origin);
+        $this->assertEquals(2, $DB->count_records('local_contenttranslator_use'), 'Re-translate calls the engine');
+
+        api::translate_now((int)$item->id, 'de', 2);
+        $this->assertEquals(3, $DB->count_records('local_contenttranslator_use'), 'Translate now calls the engine');
+
+        $page2 = $this->getDataGenerator()->create_module(
+            'page',
+            ['course' => $course->id, 'name' => 'Second', 'content' => '<p>Hello <b>world</b></p>']
+        );
+        item_manager::sync_course((int)$course->id);
+        $item2 = item_manager::find('mod_page', 'page', 'content', (int)$page2->id);
+        $translation2 = translator::translate_item($item2, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertSame(translation_manager::ORIGIN_TM, $translation2->origin);
+        $this->assertEquals(3, $DB->count_records('local_contenttranslator_use'));
+    }
+
+    /**
+     * The next text does not fit into the rest of the budget: the task stops and admins learn about it once,
+     * with a link to the dashboard, which then shows the pause.
+     */
+    public function test_budget_pause_is_notified(): void {
+        global $DB;
+        [$course, $page, $item] = $this->create_course_with_page('<p>Twelve chars</p>');
+        set_config('budgetchars', 100, 'local_contenttranslator');
+        budget::log_usage(['engine' => 'pseudo', 'sourcelang' => 'en', 'targetlang' => 'de', 'chars' => 95,
+            'triggertype' => 'bulk']);
+        $this->expectOutputRegex('~budget exhausted~');
+        $sink = $this->redirectMessages();
+        $sink->clear();
+        $DB->delete_records_select('local_contenttranslator_tr', 'itemid <> :id', ['id' => $item->id]);
+        translation_manager::ensure((int)$item->id, 'de');
+        $this->assertFalse(budget::is_paused());
+
+        $task = new task\translate_task();
+        $task->set_custom_data(['courseid' => $course->id, 'lang' => 'de', 'trigger' => budget::TRIGGER_BULK]);
+        $task->execute();
+        $this->assertEquals(95, budget::get_used(), 'Nothing was spent');
+        $messages = $sink->get_messages();
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('not enough', $messages[0]->subject);
+        $this->assertStringContainsString('/local/contenttranslator/index.php', $messages[0]->contexturl);
+        $this->assertTrue(budget::is_paused());
+
+        $task->execute();
+        $this->assertCount(1, $sink->get_messages(), 'Once per month');
+        $sink->close();
+    }
+
+    /**
+     * A failed attempt does not hide the text learners saw before: an earlier translation stays visible as stale
+     * (current one as machine translation); a failed row without text stays invisible.
+     */
+    public function test_failed_attempt_keeps_earlier_text_visible(): void {
+        global $DB;
+        [$course, $page, $item] = $this->create_course_with_page('<p>Hello world</p>');
+        $context = \context_module::instance($page->cmid);
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+
+        // Re-translating a current machine translation fails: it stays visible.
+        translation_manager::mark_failed($translation, 'engine down', 2);
+        cache_helper::purge();
+        $result = api::lookup('<p>Hello world</p>', 'de', $context);
+        $this->assertTrue($result['found']);
+        $this->assertSame(translation_manager::STATUS_MACHINE, $result['status']);
+        $this->assertSame($translation->text, $result['text']);
+
+        // The source changes and the next attempt fails: the earlier translation is shown as stale.
+        $DB->set_field('page', 'content', '<p>Hello new world</p>', ['id' => $page->id]);
+        item_manager::sync_course((int)$course->id);
+        $translation = translation_manager::get_for_item((int)$item->id, 'de');
+        translation_manager::mark_failed($translation, 'engine down', 2);
+        $this->assertSame(translation_manager::STATUS_FAILED, translation_manager::get_for_item((int)$item->id, 'de')->status);
+        cache_helper::purge();
+        $result = api::lookup('<p>Hello new world</p>', 'de', $context);
+        $this->assertTrue($result['found'], 'Earlier translation still shown');
+        $this->assertSame(translation_manager::STATUS_STALE, $result['status']);
+        $this->assertSame($translation->text, $result['text']);
+        set_config('lang_de_showstale', 0, 'local_contenttranslator');
+        cache_helper::purge();
+        $this->assertFalse(api::lookup('<p>Hello new world</p>', 'de', $context)['found'], 'Unless stale ones are hidden');
+
+        // Never translated and failed: nothing to show.
+        $other = $this->getDataGenerator()->create_module('page', ['course' => $course->id, 'content' => '<p>Other text</p>']);
+        item_manager::sync_course((int)$course->id);
+        $otheritem = item_manager::find('mod_page', 'page', 'content', (int)$other->id);
+        translation_manager::mark_failed(translation_manager::ensure((int)$otheritem->id, 'de'), 'engine down', 2);
+        cache_helper::purge();
+        $this->assertFalse(api::lookup('<p>Other text</p>', 'de', \context_module::instance($other->cmid))['found']);
+    }
+
+    /**
+     * The course settings page shows what "Use default" would give, not the course's own value.
+     */
+    public function test_course_settings_show_inherited_values(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/formslib.php');
+        $category = $this->getDataGenerator()->create_category(['name' => 'Kitchen']);
+        $course = $this->getDataGenerator()->create_course(['category' => $category->id]);
+        config::save_override('category', (int)$category->id, ['targetlangs' => ['de']]);
+        config::save_override('course', (int)$course->id, ['enabled' => 0, 'externalallowed' => 0, 'targetlangs' => ['fr']]);
+
+        $parent = config::get_effective((int)$course->id, false);
+        $this->assertTrue($parent->enabled, 'Site default is on in this test');
+        $this->assertTrue($parent->externalallowed);
+        $this->assertSame(['de'], $parent->targetlangs);
+        $this->assertSame('Kitchen', $parent->inherited['targetlangs']);
+        // The course's own values are unaffected (separate cache entry).
+        $own = config::get_effective((int)$course->id);
+        $this->assertFalse($own->enabled);
+        $this->assertSame(['fr'], $own->targetlangs);
+
+        $form = new \local_contenttranslator\form\course_config_form(null, [
+            'effective' => $parent, 'inheritedlabels' => $parent->inherited,
+        ]);
+        $html = $form->render();
+        $this->assertStringContainsString('Use default (Yes)', $html);
+        $this->assertStringContainsString('Use the setting of Kitchen', $html);
+        $this->assertStringContainsString('Use default (Show immediately', $html);
+
+        // Languages with different site visibility: no single value to show.
+        set_config('lang_fr_visibility', config::VISIBILITY_REVIEWED, 'local_contenttranslator');
+        $site = config::get_effective((int)$this->getDataGenerator()->create_course()->id, false);
+        $html = (new \local_contenttranslator\form\course_config_form(null, [
+            'effective' => $site, 'inheritedlabels' => $site->inherited,
+        ]))->render();
+        $this->assertStringContainsString('Use default (per language, as in the site settings)', $html);
+        $this->assertStringContainsString('Use the setting of the site', $html);
+    }
+
+    /**
      * Render lookup honours visibility, language fallback and the tenant boundary.
      */
     public function test_lookup_and_visibility(): void {
@@ -259,8 +435,8 @@ final class pipeline_test extends \advanced_testcase {
             $DB->count_records('local_contenttranslator_tr', ['status' => translation_manager::STATUS_QUEUED])
         );
         $messages = $sink->get_messages();
-        $this->assertNotEmpty($messages);
-        $this->assertStringContainsString('100 %', $messages[0]->subject);
+        $this->assertCount(1, $messages, 'Used up is reported once; the stop that follows adds no second message');
+        $this->assertStringContainsString('used up', $messages[0]->subject);
         $sink->close();
         // On demand still works for users allowed to exceed the budget.
         $this->assertTrue(budget::can_spend(1000, budget::TRIGGER_ONDEMAND, 2));

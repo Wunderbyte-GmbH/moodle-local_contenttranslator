@@ -164,28 +164,45 @@ final class budget {
     }
 
     /**
-     * Notify admins once per month at 80 % and 100 %.
+     * Notify admins once per month and budget: at the warning level (setting), at 100 %, and when automatic
+     * translation pauses because the next text does not fit into the rest of the budget. 100 % and "paused" say
+     * the same thing, so only the first of the two is sent.
+     *
+     * @param bool $paused True when automatic translation just stopped because the next text would exceed the budget.
      */
-    public static function notify_thresholds(): void {
+    public static function notify_thresholds(bool $paused = false): void {
         $limit = self::get_limit();
         if ($limit <= 0) {
             return;
         }
         $used = self::get_used();
         $percent = (int)floor($used / $limit * 100);
-        $month = date('Ym');
-        $notified = json_decode((string)config::get('budgetnotified', '{}'), true) ?: [];
-        $level = $percent >= 100 ? 100 : ($percent >= 80 ? 80 : 0);
-        if ($level === 0 || (($notified[$month] ?? 0) >= $level)) {
+        $warnpercent = self::get_warning_percent();
+        $sent = self::get_sent_notifications($limit);
+        if ($paused) {
+            $level = 'paused';
+        } else if ($percent >= 100) {
+            $level = '100';
+        } else if ($warnpercent > 0 && $percent >= $warnpercent) {
+            $level = 'warning';
+        } else {
             return;
         }
-        $notified = [$month => $level];
-        set_config('budgetnotified', json_encode($notified), 'local_contenttranslator');
+        if (in_array($level, $sent, true) || ($level !== 'warning' && array_intersect(['100', 'paused'], $sent))) {
+            return;
+        }
+        $sent = array_values(array_unique(array_merge($sent, $level === 'warning' ? ['warning'] : ['warning', $level])));
+        set_config(
+            'budgetnotified',
+            json_encode(['month' => date('Ym'), 'limit' => $limit, 'sent' => $sent]),
+            'local_contenttranslator'
+        );
 
         $a = (object)['percent' => $percent, 'used' => number_format($used), 'limit' => number_format($limit)];
-        $subject = get_string('budgetnotification:subject', 'local_contenttranslator', $a);
-        $body = get_string('budgetnotification:body', 'local_contenttranslator', $a);
-        $url = new \moodle_url('/admin/settings.php', ['section' => 'local_contenttranslator']);
+        $key = ['warning' => 'budgetnotification', '100' => 'budgetexhausted', 'paused' => 'budgetpaused'][$level];
+        $subject = get_string($key . ':subject', 'local_contenttranslator', $a);
+        $body = get_string($key . ':body', 'local_contenttranslator', $a);
+        $url = new \moodle_url('/local/contenttranslator/index.php');
         foreach (get_admins() as $admin) {
             $message = new \core\message\message();
             $message->component = 'local_contenttranslator';
@@ -200,13 +217,55 @@ final class budget {
             $message->smallmessage = $subject;
             $message->notification = 1;
             $message->contexturl = $url->out(false);
-            $message->contexturlname = get_string('pluginname', 'local_contenttranslator');
+            $message->contexturlname = get_string('dashboard', 'local_contenttranslator');
             message_send($message);
         }
         \local_contenttranslator\event\budget_threshold_reached::create([
             'context' => \context_system::instance(),
             'other' => ['percent' => $percent, 'used' => $used, 'limit' => $limit],
         ])->trigger();
+    }
+
+    /**
+     * Percentage of the budget at which admins are warned (setting), 0 when the warning is off.
+     *
+     * @return int
+     */
+    public static function get_warning_percent(): int {
+        return max(0, min(99, (int)config::get('budgetwarnpercent', 80)));
+    }
+
+    /**
+     * Whether automatic translation is paused by the budget this month: used up, or the next text did not fit.
+     *
+     * @return bool
+     */
+    public static function is_paused(): bool {
+        $limit = self::get_limit();
+        if ($limit <= 0) {
+            return false;
+        }
+        return self::get_used() >= $limit || in_array('paused', self::get_sent_notifications($limit), true);
+    }
+
+    /**
+     * Notifications already sent for the current month and budget. Raising the budget starts over.
+     *
+     * @param int $limit Current budget.
+     * @return string[] Sent levels: 'warning', '100', 'paused'.
+     */
+    private static function get_sent_notifications(int $limit): array {
+        $state = json_decode((string)config::get('budgetnotified', '{}'), true) ?: [];
+        $month = date('Ym');
+        if (!isset($state['month'])) {
+            // Format before 2026091800: {"YYYYMM": highest level}.
+            $level = (int)($state[$month] ?? 0);
+            return $level >= 100 ? ['warning', '100'] : ($level >= 80 ? ['warning'] : []);
+        }
+        if ($state['month'] !== $month || (int)$state['limit'] !== $limit) {
+            return [];
+        }
+        return $state['sent'] ?? [];
     }
 
     /**

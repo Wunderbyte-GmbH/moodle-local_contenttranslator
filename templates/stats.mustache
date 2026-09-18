@@ -22,14 +22,15 @@
     Context variables required for this template:
     * langs - array of {lang, name, total, done, reviewed, machine, stale, missing, failed, queued, locked, percent,
       reviewedpercent, machinepercent, stalepercent, filterurl}
-    * budget - {limit, used, percent, formatted, hasbudget}
+    * budget - {limit, used, percent, hasbudget, warning, paused, changeurl}
 
     Example context (json):
     {
         "langs": [{"lang": "de", "name": "Deutsch", "total": 10, "done": 6, "reviewed": 2, "machine": 4, "stale": 1,
                    "missing": 2, "failed": 1, "queued": 0, "locked": 0, "percent": 60, "reviewedpercent": 20,
                    "machinepercent": 40, "stalepercent": 10, "filterurl": "#"}],
-        "budget": {"hasbudget": true, "limit": "2,000,000", "used": "120,000", "percent": 6}
+        "budget": {"hasbudget": true, "limit": "2,000,000", "used": "120,000", "percent": 6, "warning": false,
+                   "paused": false, "changeurl": "#"}
     }
 }}
 <div class="local-contenttranslator-stats row">
@@ -65,13 +66,20 @@
 </div>
 {{#budget}}
 <div class="local-contenttranslator-budget mb-3">
+    {{#paused}}
+    <div class="alert alert-danger d-flex justify-content-between align-items-center">
+        <span>{{#str}}budgetpausednotice, local_contenttranslator{{/str}}</span>
+        <a href="{{changeurl}}" class="btn btn-sm btn-outline-danger ms-2">{{#str}}budgetchange, local_contenttranslator{{/str}}</a>
+    </div>
+    {{/paused}}
     {{#hasbudget}}
     <div class="d-flex justify-content-between small">
         <span>{{#str}}budgetusage, local_contenttranslator{{/str}}</span>
-        <span>{{used}} / {{limit}} {{#str}}characters, local_contenttranslator{{/str}} ({{percent}} %)</span>
+        <span>{{used}} / {{limit}} {{#str}}characters, local_contenttranslator{{/str}} ({{percent}} %)
+            · <a href="{{changeurl}}">{{#str}}budgetchange, local_contenttranslator{{/str}}</a></span>
     </div>
     <div class="progress" style="height: 0.6rem;" role="progressbar" aria-valuenow="{{percent}}" aria-valuemin="0" aria-valuemax="100">
-        <div class="progress-bar {{#warning}}bg-warning{{/warning}}{{^warning}}bg-primary{{/warning}}" style="width: {{percent}}%"></div>
+        <div class="progress-bar {{#paused}}bg-danger{{/paused}}{{^paused}}{{#warning}}bg-warning{{/warning}}{{^warning}}bg-primary{{/warning}}{{/paused}}" style="width: {{percent}}%"></div>
     </div>
     {{/hasbudget}}
     {{^hasbudget}}

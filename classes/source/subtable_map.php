@@ -154,7 +154,7 @@ final class subtable_map {
             'timemodified', 'timecreated', 'sortorder',
             // Settings of mod_booking: comma separated field lists (responsesfields, reportfields, optionsfields,
             // optionsdownloadfields, signinsheetfields), not content.
-            'booking.*fields',
+            'booking.*fields', 'lesson.conditions', 'lti.secureicon', 'booking.banusernames', 'booking.categoryid',
         ];
         $custom = trim((string)get_config('local_contenttranslator', 'skipcolumns'));
         if ($custom !== '') {

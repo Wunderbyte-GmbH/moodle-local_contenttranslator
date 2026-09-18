@@ -52,9 +52,14 @@ final class translator {
         }
         $tenantkey = tenant::key((int)$item->courseid, (int)$item->categoryid);
 
-        // 1. Translation memory: exact match is free.
+        // 1. Translation memory: exact match is free, but only when the formatting matches too.
+        $source = $item->sourceformat == FORMAT_MARKDOWN ? markdown_to_html((string)$item->sourcetext) : (string)$item->sourcetext;
         $hit = tm::find($tenantkey, $item->sourcelang, $lang, $item->sourcehash);
-        if ($hit && (string)$hit->targettext !== '') {
+        // A hit that equals the item's own translation means someone asked to translate again: ask the engine.
+        if (
+            $hit && (string)$hit->targettext !== '' && tm::same_markup((string)$hit->sourcetext, $source)
+            && (string)$hit->targettext !== (string)$translation->text
+        ) {
             tm::increment((int)$hit->id);
             return translation_manager::store_machine(
                 $translation,
@@ -123,6 +128,7 @@ final class translator {
                 'contextid' => (int)$item->contextid,
                 'userid' => $userid,
                 'strict' => false,
+                'previous' => self::previous_version($translation, $item),
             ];
             for ($attempt = 0; $attempt < 2; $attempt++) {
                 $results = $engine->translate_batch([$input], $item->sourcelang, $lang, $options);
@@ -186,6 +192,26 @@ final class translator {
         }
         translation_manager::mark_failed($translation, $lasterror ?: 'unknown error', $userid);
         return $translation;
+    }
+
+    /**
+     * The earlier source and its translation by a person, as plain text, so the engine can keep that wording.
+     *
+     * @param \stdClass $translation
+     * @param \stdClass $item
+     * @return array|null ['source' => ..., 'translation' => ...], null when no person worked on the translation
+     */
+    private static function previous_version(\stdClass $translation, \stdClass $item): ?array {
+        $human = $translation->origin === translation_manager::ORIGIN_HUMAN
+            || $translation->status === translation_manager::STATUS_REVIEWED
+            || !empty($translation->reviewerid);
+        if (!$human || (string)$translation->text === '' || (string)$translation->sourcesnapshot === '') {
+            return null;
+        }
+        return [
+            'source' => normaliser::normalise((string)$translation->sourcesnapshot, (int)$item->sourceformat),
+            'translation' => normaliser::normalise((string)$translation->text, (int)$translation->format),
+        ];
     }
 
     /**

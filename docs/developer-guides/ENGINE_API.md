@@ -28,7 +28,8 @@ class deepl_engine implements engine {
 
     /** @param segment[] $segments  @return result[] keyed by segment id */
     public function translate_batch(array $segments, string $sourcelang, string $targetlang, array $options = []): array {
-        // $options: contextid, userid, strict (retry after broken markup), formality, styleguide, glossary
+        // $options: contextid, userid, strict (retry after broken markup), formality, styleguide, glossary,
+        // previous (earlier source and its translation by a person, plain text; null if none)
         $results = [];
         foreach ($segments as $segment) {
             // ... call the API ...

@@ -206,4 +206,86 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertSame('<p>Kopierter Inhalt</p>', $newtranslation->text);
         $this->assertSame(translation_manager::STATUS_REVIEWED, $newtranslation->status);
     }
+
+    /**
+     * Back up a course and restore it into a course.
+     *
+     * @param int $courseid Course to back up.
+     * @param int $targetid Course to restore into.
+     * @param int $target One of the backup::TARGET_* constants.
+     * @param bool $overwriteconf Whether "Overwrite course configuration" is chosen (merging only).
+     */
+    private function backup_and_restore(int $courseid, int $targetid, int $target, bool $overwriteconf = false): void {
+        global $CFG, $USER;
+        $CFG->backup_file_logger_level = \backup::LOG_NONE;
+        $bc = new \backup_controller(
+            \backup::TYPE_1COURSE,
+            $courseid,
+            \backup::FORMAT_MOODLE,
+            \backup::INTERACTIVE_NO,
+            \backup::MODE_GENERAL,
+            $USER->id
+        );
+        $bc->execute_plan();
+        $backupid = 'local_contenttranslator_cfg_' . $targetid;
+        $file = $bc->get_results()['backup_destination'];
+        $file->extract_to_pathname(get_file_packer('application/vnd.moodle.backup'), make_backup_temp_directory($backupid));
+        $bc->destroy();
+        $rc = new \restore_controller($backupid, $targetid, \backup::INTERACTIVE_NO, \backup::MODE_GENERAL, $USER->id, $target);
+        if ($overwriteconf) {
+            $rc->get_plan()->get_setting('overwrite_conf')->set_value(true);
+        }
+        $this->assertTrue($rc->execute_precheck());
+        $rc->execute_plan();
+        $rc->destroy();
+    }
+
+    /**
+     * The course's own translation settings travel with the backup and are restored wherever Moodle restores
+     * course settings (new course, or "Overwrite course configuration").
+     */
+    public function test_course_settings_are_restored(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        set_config('targetlangs', 'de,fr', 'local_contenttranslator');
+        $course = $this->getDataGenerator()->create_course();
+        config::save_override('course', (int)$course->id, [
+            'enabled' => 1, 'targetlangs' => ['fr'], 'visibility' => config::VISIBILITY_REVIEWED, 'externalallowed' => 0,
+        ]);
+
+        // New course: all four values arrive.
+        $newcourseid = (int)\restore_dbops::create_new_course('Restored', 'restoredcfg', $course->category);
+        $this->backup_and_restore((int)$course->id, $newcourseid, \backup::TARGET_NEW_COURSE);
+        $override = config::get_override('course', $newcourseid);
+        $this->assertNotNull($override, 'Settings restored');
+        $this->assertEquals(1, $override->enabled);
+        $this->assertSame('fr', $override->targetlangs);
+        $this->assertSame(config::VISIBILITY_REVIEWED, $override->visibility);
+        $this->assertEquals(0, $override->externalallowed, 'A confidential course stays confidential');
+        $effective = config::get_effective($newcourseid);
+        $this->assertTrue($effective->enabled);
+        $this->assertFalse($effective->externalallowed);
+
+        // Merging into an existing course leaves its settings alone, as Moodle does with all course settings.
+        $existing = $this->getDataGenerator()->create_course();
+        config::save_override('course', (int)$existing->id, ['enabled' => 0, 'externalallowed' => 1]);
+        $this->backup_and_restore((int)$course->id, (int)$existing->id, \backup::TARGET_EXISTING_ADDING);
+        $override = config::get_override('course', (int)$existing->id);
+        $this->assertEquals(0, $override->enabled);
+        $this->assertEquals(1, $override->externalallowed);
+        $this->assertNull($override->targetlangs);
+
+        // Choosing "Overwrite course configuration" takes the settings from the backup.
+        $this->backup_and_restore((int)$course->id, (int)$existing->id, \backup::TARGET_EXISTING_ADDING, true);
+        $override = config::get_override('course', (int)$existing->id);
+        $this->assertEquals(1, $override->enabled);
+        $this->assertEquals(0, $override->externalallowed);
+        $this->assertSame('fr', $override->targetlangs);
+
+        // A course without own settings adds none.
+        $bare = $this->getDataGenerator()->create_course();
+        $bareid = (int)\restore_dbops::create_new_course('Bare', 'barecfg', $bare->category);
+        $this->backup_and_restore((int)$bare->id, $bareid, \backup::TARGET_NEW_COURSE);
+        $this->assertNull(config::get_override('course', $bareid));
+    }
 }

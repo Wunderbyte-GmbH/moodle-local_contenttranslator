@@ -15,7 +15,7 @@ Triggers that queue ad-hoc jobs:
   queue a job after the debounce period, so repeated saves cost once.
 - **Bulk**: *Translate course* on the dashboard.
 - **Backlog**: the task above.
-- **On demand**: *Translate with AI now* runs synchronously in the browser request, as the clicking user.
+- **On demand**: *Translate now* runs synchronously in the browser request, as the clicking user.
 
 Automatic jobs run only when a monthly budget is set, *Enable automatic translation* is on and the
 course has automatic translation enabled.
