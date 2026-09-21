@@ -42,15 +42,16 @@ class fake_core_ai_engine extends core_ai_engine {
      * Queue a successful response.
      *
      * @param string $content Generated text.
+     * @param string $finishreason Why the model stopped: "stop", or "length" when the answer was cut off.
      * @return self
      */
-    public function respond(string $content): self {
+    public function respond(string $content, string $finishreason = 'stop'): self {
         $response = new response_generate_text(true);
         $response->set_response_data([
             'id' => 'fake-1',
             'fingerprint' => 'fp-1',
             'generatedcontent' => $content,
-            'finishreason' => 'stop',
+            'finishreason' => $finishreason,
             'prompttokens' => '12',
             'completiontokens' => '5',
             'model' => 'fake-model',

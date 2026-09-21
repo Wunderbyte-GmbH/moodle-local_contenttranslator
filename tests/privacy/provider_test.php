@@ -16,6 +16,7 @@
 
 namespace local_contenttranslator\privacy;
 
+use core_privacy\local\metadata\collection;
 use core_privacy\local\request\approved_contextlist;
 use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\userlist;
@@ -37,6 +38,16 @@ use local_contenttranslator\translator;
  * @covers     \local_contenttranslator\privacy\provider
  */
 final class provider_test extends provider_testcase {
+    /**
+     * The call to the Wunderbyte trial service (site URL and IP) is declared next to the call to the AI subsystem.
+     */
+    public function test_metadata_declares_the_trial_call(): void {
+        $collection = provider::get_metadata(new collection('local_contenttranslator'));
+        $names = array_map(fn($item) => $item->get_name(), $collection->get_collection());
+        $this->assertContains('core_ai', $names);
+        $this->assertContains('llm.wunderbyte.at', $names);
+    }
+
     /**
      * Export and delete.
      */

@@ -173,6 +173,26 @@ final class setup_check_test extends \advanced_testcase {
     }
 
     /**
+     * A site without a working AI provider is told that the free Wunderbyte trial is in the setup wizard.
+     * A site whose engine works gets no such hint.
+     */
+    public function test_trial_hint(): void {
+        $this->healthy_setup();
+        set_config('engine', 'core_ai', 'local_contenttranslator');
+        $result = $this->run_check();
+        $this->assertStringContainsString(get_string('check:trialhint', 'local_contenttranslator'), $result->get_details());
+
+        set_config('engine', 'pseudo', 'local_contenttranslator');
+        engine_manager::reset();
+        $result = $this->run_check();
+        $this->assertSame(result::OK, $result->get_status());
+        $this->assertStringNotContainsString(
+            get_string('check:trialhint', 'local_contenttranslator'),
+            (string)$result->get_details()
+        );
+    }
+
+    /**
      * With the real core_ai engine and no enabled AI provider, the check reports the engine as unavailable
      * instead of failing itself.
      */

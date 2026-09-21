@@ -19,6 +19,7 @@ namespace local_contenttranslator\form;
 use local_contenttranslator\budget;
 use local_contenttranslator\config;
 use local_contenttranslator\engine\engine_manager;
+use local_contenttranslator\trial\trial_provisioner;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -70,13 +71,21 @@ class wizard_form extends \moodleform {
         $mform->addHelpButton('acceptpolicy', 'acceptpolicy', 'local_contenttranslator');
 
         $mform->addElement('header', 'budgethdr', get_string('wizard:budget', 'local_contenttranslator'));
+        $defaults = self::get_budget_defaults();
         $mform->addElement('static', 'budgetinfo', '', get_string('budget_desc', 'local_contenttranslator'));
+        if ($defaults['sharedcredit']) {
+            $mform->addElement(
+                'static',
+                'sharedcreditinfo',
+                '',
+                get_string('trial_budget_sharedcredit', 'local_contenttranslator')
+            );
+        }
         $mform->addElement('text', 'budgetchars', get_string('budgetchars', 'local_contenttranslator'), ['size' => 12]);
         $mform->setType('budgetchars', PARAM_INT);
-        $mform->setDefault('budgetchars', budget::get_limit() ?: 2000000);
+        $mform->setDefault('budgetchars', $defaults['budgetchars']);
         $mform->addElement('advcheckbox', 'enableauto', '', get_string('enableauto', 'local_contenttranslator'));
-        $mform->setDefault('enableauto', (int)config::get('enableauto', 1));
-
+        $mform->setDefault('enableauto', $defaults['enableauto']);
         $this->add_action_buttons(true, get_string('savechanges'));
     }
 
@@ -87,5 +96,24 @@ class wizard_form extends \moodleform {
             $errors['budgetchars'] = get_string('error:budgetrequired', 'local_contenttranslator');
         }
         return $errors;
+    }
+
+    /**
+     * Defaults of the budget section.
+     *
+     * A site that uses a Wunderbyte provider (free trial or bought key) shares the credit with other Wunderbyte AI
+     * features, and bulk translation uses it up quickly. So nothing is suggested there: the admin sets a budget on
+     * purpose, and until then automatic translation stays off. A budget that was set before is always kept.
+     *
+     * @return array{budgetchars: int, enableauto: int, sharedcredit: bool}
+     */
+    public static function get_budget_defaults(): array {
+        $shared = (new trial_provisioner())->has_wunderbyte_provider();
+        $limit = budget::get_limit();
+        return [
+            'budgetchars' => $limit > 0 ? $limit : ($shared ? 0 : 2000000),
+            'enableauto' => ($shared && $limit <= 0) ? 0 : (int)config::get('enableauto', 1),
+            'sharedcredit' => $shared,
+        ];
     }
 }

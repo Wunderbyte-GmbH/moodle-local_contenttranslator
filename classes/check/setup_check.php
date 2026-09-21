@@ -21,6 +21,7 @@ use core\check\result;
 use local_contenttranslator\budget;
 use local_contenttranslator\config;
 use local_contenttranslator\engine\engine_manager;
+use local_contenttranslator\trial\trial_provisioner;
 
 /**
  * Status check: setup, budget, filter position and service user.
@@ -100,7 +101,13 @@ class setup_check extends check {
             }
         }
         if ($engine && !$engine->is_available()) {
-            $problems[] = get_string('check:engineunavailable', 'local_contenttranslator', $engine->get_display_name());
+            $problem = get_string('check:engineunavailable', 'local_contenttranslator', $engine->get_display_name());
+            // A site without an AI provider can start the free Wunderbyte trial in the setup wizard.
+            $trialstate = (new trial_provisioner())->get_status()['state'];
+            if ($engine->get_name() === 'core_ai' && in_array($trialstate, ['available', 'reusable'], true)) {
+                $problem .= ' ' . get_string('check:trialhint', 'local_contenttranslator');
+            }
+            $problems[] = $problem;
             $status = $status === result::ERROR ? $status : result::WARNING;
         }
 

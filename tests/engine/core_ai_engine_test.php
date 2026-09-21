@@ -136,6 +136,88 @@ final class core_ai_engine_test extends \advanced_testcase {
     }
 
     /**
+     * An answer that was cut off is never returned as a translation. Behind the Wunderbyte gateway the partial
+     * reasoning text of the model arrives as normal content, so only the finish reason tells it apart.
+     */
+    public function test_cut_off_answer_is_a_failure(): void {
+        $engine = (new fake_core_ai_engine())
+            ->respond('The user wants me to translate this, so let me think about', 'length')
+            ->respond('Hallo', 'LENGTH')
+            ->respond('Hallo', 'max_tokens')
+            ->respond('Hallo', 'content_filter');
+
+        $result = $this->translate($engine, 'Hello');
+        $this->assertFalse($result->success);
+        $this->assertSame('', $result->text, 'The partial text is not passed on');
+        $this->assertFalse($result->ratelimited);
+        $this->assertSame(get_string('error:truncated', 'local_contenttranslator', 'length'), $result->error);
+        $this->assertSame('fake-model', $result->model, 'The call is billed, so its usage is still reported');
+        $this->assertSame(12, $result->prompttokens);
+        $this->assertSame(5, $result->completiontokens);
+        $this->assertTrue($result->retryable, 'A short text that was cut off is a runaway of the model: try once more');
+
+        $this->assertFalse($this->translate($engine, 'Hello')->success, 'Upper case is the same reason');
+        $this->assertFalse($this->translate($engine, 'Hello')->success, 'max_tokens is the same reason');
+
+        $result = $this->translate($engine, 'Hello');
+        $this->assertFalse($result->success);
+        $this->assertFalse($result->retryable, 'A filtered answer would be filtered again');
+    }
+
+    /**
+     * A long text that was cut off is not worth a second call: it would be cut off at the same place.
+     */
+    public function test_cut_off_long_text_is_not_retryable(): void {
+        $engine = (new fake_core_ai_engine())->respond('Lange Ein', 'length');
+        $result = $this->translate($engine, str_repeat('Long text. ', 500));
+        $this->assertFalse($result->success);
+        $this->assertFalse($result->retryable);
+    }
+
+    /**
+     * Normal finish reasons, in any case, and a missing finish reason are accepted.
+     */
+    public function test_regular_finish_reasons_are_accepted(): void {
+        $engine = (new fake_core_ai_engine())
+            ->respond('Hallo', 'stop')
+            ->respond('Hallo', 'STOP')
+            ->respond('Hallo', '');
+        foreach (['stop', 'STOP', 'missing'] as $reason) {
+            $result = $this->translate($engine, 'Hello');
+            $this->assertTrue($result->success, "Finish reason $reason");
+            $this->assertSame('Hallo', $result->text);
+            $this->assertFalse($result->retryable);
+        }
+    }
+
+    /**
+     * Gateway timeouts and bad gateways are retried once, but they do not stop the whole job like a rate limit.
+     */
+    public function test_gateway_errors_are_retryable(): void {
+        $engine = (new fake_core_ai_engine())
+            ->fail(504, 'Error')
+            ->fail(502, 'Error')
+            ->fail(500, 'Internal server error')
+            ->throw(new \moodle_exception('generic', 'error', '', 'cURL error 28: Operation timed out after 30001 milliseconds'));
+
+        foreach ([504, 502] as $code) {
+            $result = $this->translate($engine);
+            $this->assertFalse($result->success);
+            $this->assertTrue($result->retryable, "HTTP $code is tried once more");
+            $this->assertFalse($result->ratelimited, "HTTP $code does not pause the whole job");
+        }
+
+        $result = $this->translate($engine);
+        $this->assertFalse($result->success);
+        $this->assertFalse($result->retryable, 'HTTP 500 is a real failure');
+
+        $result = $this->translate($engine);
+        $this->assertFalse($result->success);
+        $this->assertTrue($result->retryable, 'A timeout while talking to the provider');
+        $this->assertFalse($result->ratelimited);
+    }
+
+    /**
      * The prompt carries languages, register, style guide, context, the text and (on retry) the strict rule.
      */
     public function test_prompt(): void {

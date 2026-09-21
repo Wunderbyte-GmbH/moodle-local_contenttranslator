@@ -13,7 +13,9 @@ vendor/bin/behat --tags @local_contenttranslator
 | `pipeline_test` | registry, pseudo engine, translation memory, visibility and tenant lookups, status lifecycle, budget, observer and tasks, config inheritance |
 | `backup_restore_test` | course backup and restore incl. module and sub-table remapping |
 | `output_test` | template, settings tree, status check, external functions |
-| `privacy/provider_test` | export and deletion |
+| `privacy/provider_test` | export and deletion, declaration of the trial call |
+| `trial_test` | Wunderbyte trial: key request with a faked service, response mapping, reuse of an existing provider, Moodle 4.5 overwrite protection, consent gate, capability, wizard defaults |
+| `engine/core_ai_engine_test`, `engine_pipeline_test` | also: cut-off answers (finish reason) and temporary failures are never stored, retried once |
 | `filter_contenttranslator/text_filter_test` | filter output for translated, untranslated and source-language users, show original, visibility |
 | `behat/workbench.feature` | dashboard scan, editor translate/review/lock, course settings, wizard (core steps only) |
 

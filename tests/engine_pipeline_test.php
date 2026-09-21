@@ -202,6 +202,78 @@ final class engine_pipeline_test extends \advanced_testcase {
     }
 
     /**
+     * A temporary failure is tried once more with the same prompt; the second try succeeds.
+     */
+    public function test_transient_failure_is_retried_once(): void {
+        $engine = $this->add_engine((new scripted_engine())->script(scripted_engine::TRANSIENT, scripted_engine::ECHO));
+        set_config('engine', 'scripted', 'local_contenttranslator');
+        [, , $item] = $this->create_page();
+
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $this->assertSame(translation_manager::STATUS_MACHINE, $translation->status);
+        $this->assertCount(2, $engine->calls);
+        $this->assertFalse($engine->calls[1]['options']['strict'], 'Not a markup problem: the prompt stays the same');
+    }
+
+    /**
+     * A temporary failure twice in a row fails the item for good, after exactly two calls.
+     */
+    public function test_transient_failure_twice_is_failed(): void {
+        $engine = $this->add_engine((new scripted_engine())->script(scripted_engine::TRANSIENT, scripted_engine::TRANSIENT));
+        set_config('engine', 'scripted', 'local_contenttranslator');
+        [, , $item] = $this->create_page();
+
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_BULK, 2);
+        $translation = translation_manager::get((int)$translation->id);
+        $this->assertSame(translation_manager::STATUS_FAILED, $translation->status);
+        $this->assertNull($translation->text);
+        $this->assertSame('504 gateway timeout', $translation->failreason);
+        $this->assertCount(2, $engine->calls, 'One retry, not more');
+    }
+
+    /**
+     * A runaway of the model (answer cut off, partial reasoning as content) is never stored as translation,
+     * not even for a short text without markup, where nothing else would notice it.
+     */
+    public function test_cut_off_answer_is_never_stored(): void {
+        $engine = new fake_core_ai_engine();
+        $this->add_engine($engine);
+        set_config('engine', 'core_ai', 'local_contenttranslator');
+        [$course, , $item] = $this->create_page('Plain text');
+        $user = $this->getDataGenerator()->create_user();
+        \core_ai\manager::user_policy_accepted((int)$user->id, \context_system::instance()->id);
+        $engine->respond('Okay, the user wants a German translation of "Plain text". Let me think about', 'length')
+            ->respond('Okay, the user wants a German translation of "Plain text". First I will consider', 'length');
+
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_ONDEMAND, (int)$user->id);
+        $translation = translation_manager::get((int)$translation->id);
+        $this->assertSame(translation_manager::STATUS_FAILED, $translation->status);
+        $this->assertNull($translation->text, 'The partial reasoning is not a translation');
+        $this->assertSame(get_string('error:truncated', 'local_contenttranslator', 'length'), $translation->failreason);
+        $this->assertCount(2, $engine->actions, 'One retry, then give up');
+        $this->assertNull(tm::find(tenant::key((int)$course->id), 'en', 'de', $item->sourcehash), 'Nothing enters the TM');
+    }
+
+    /**
+     * A runaway is a matter of luck: the second try gives a real translation, which is stored.
+     */
+    public function test_cut_off_answer_is_retried_and_then_stored(): void {
+        $engine = new fake_core_ai_engine();
+        $this->add_engine($engine);
+        set_config('engine', 'core_ai', 'local_contenttranslator');
+        [, , $item] = $this->create_page('Plain text');
+        $user = $this->getDataGenerator()->create_user();
+        \core_ai\manager::user_policy_accepted((int)$user->id, \context_system::instance()->id);
+        $engine->respond('Okay, the user wants a German translation. Let me think about', 'length')
+            ->respond('Klartext');
+
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_ONDEMAND, (int)$user->id);
+        $this->assertSame(translation_manager::STATUS_MACHINE, $translation->status);
+        $this->assertSame('Klartext', $translation->text);
+        $this->assertCount(2, $engine->actions);
+    }
+
+    /**
      * Rate limits abort the item without marking it failed; the task re-throws so cron retries later.
      */
     public function test_rate_limit(): void {

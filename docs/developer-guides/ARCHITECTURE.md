@@ -1,16 +1,126 @@
 # Architecture
 
+The plugin has two separate paths. The **write path** detects content changes and translates them in the
+background. The **read path** serves stored translations at render time and never calls an engine.
+
+```mermaid
+flowchart TB
+    subgraph triggers["Triggers"]
+        direction LR
+        events(["Moodle events<br/>db/events.php · *"])
+        scan["scan_task<br/>every 15 min"]
+        backlog["backlog_task<br/>every 30 min"]
+        wstranslate["translate_item<br/>web service"]
+    end
+
+    subgraph detection["Change detection"]
+        direction LR
+        observer["observer::catch_all<br/>known objecttable?"]
+        itemmgr["item_manager<br/>items · sourcehash · stale"]
+        registry["source\registry<br/>hook register_sources<br/>course · section · module · category · subtable"]
+    end
+
+    subgraph queueing["Queue"]
+        direction LR
+        queue["queue<br/>debounced ad-hoc tasks"]
+        task["task\translate_task<br/>course × lang × trigger"]
+    end
+
+    subgraph pipeline["translator::translate_item"]
+        direction LR
+        tmfind["1 · tm::find<br/>exact match → origin tm"]
+        budgetcheck["2 · budget::can_spend<br/>monthly char limit"]
+        engmgr["3 · engine_manager<br/>engines for lang pair"]
+        protect["4 · html_protector<br/>markup → placeholders"]
+        batch["5 · translate_batch<br/>validate · retry · next engine"]
+        tmfind --> budgetcheck --> engmgr --> protect --> batch
+    end
+
+    subgraph results["Results"]
+        direction LR
+        trmgr["translation_manager<br/>status · origin · history"]
+        engines["Engines<br/>hook register_engines<br/>core_ai_engine · pseudo_engine"]
+        coreai(["core_ai subsystem<br/>generate_text"])
+        evts["Events<br/>translation_updated · translation_deleted"]
+    end
+
+    subgraph helpers["Shared helpers"]
+        direction LR
+        normaliser["normaliser<br/>strip · decode · sha1"]
+        tenant["tenant<br/>course or category key"]
+        config["config<br/>site + per-course"]
+    end
+
+    subgraph db["Database · local_contenttranslator_*"]
+        direction LR
+        titem[("_item")]
+        tcfg[("_cfg")]
+        ttm[("_tm")]
+        tuse[("_use")]
+        ttr[("_tr · _hist")]
+    end
+
+    subgraph read["Read path · render time · never calls an engine"]
+        direction LR
+        filter(["filter_contenttranslator"])
+        wsget["get_translation<br/>web service · no login"]
+        lookup["api::lookup<br/>normalise → sha1 + lang + tenant"]
+        cachehelper["cache_helper<br/>key · invalidate · purge"]
+        muc[("MUC translations<br/>incl. negative entries")]
+    end
+
+    events -->|fires| observer
+    observer -->|sync_by_table| itemmgr
+    observer -->|queue_items| queue
+    scan -->|resync| itemmgr
+    scan -->|queue_items| queue
+    backlog -->|queue_items| queue
+    itemmgr -->|asks sources| registry
+    itemmgr -->|writes| titem
+    queue -->|ad-hoc task| task
+    task -->|runs| pipeline
+    wstranslate -->|api::translate_now| pipeline
+    pipeline -.->|find / store| ttm
+    pipeline -.->|log_usage| tuse
+    pipeline -.->|resolves| engines
+    engines -.-> coreai
+    pipeline -->|store_machine / mark_failed| trmgr
+    trmgr -->|writes| ttr
+    trmgr -->|fires| evts
+    trmgr -.->|invalidates| cachehelper
+    config -.-> tcfg
+
+    filter -->|lookup| lookup
+    wsget --> lookup
+    lookup -->|get / set| cachehelper
+    cachehelper --> muc
+    lookup -.->|on miss: 1 query| titem
+
+    classDef write stroke:#2F4FB0,stroke-width:2px
+    classDef readpath stroke:#A35A12,stroke-width:2px
+    classDef external stroke-dasharray:5 3
+    class observer,itemmgr,queue,task,trmgr write
+    class filter,wsget,lookup,cachehelper readpath
+    class events,coreai,filter external
 ```
-Teacher edits content ──events──▶ observer ──▶ item_manager (registry: items + source hash)
-Scheduled scan       ──────────▶            ──▶ translations flipped to stale
-                                                      │
-                                                      ▼ queue (ad-hoc task per course × language)
-                                              translator pipeline
-                                   tm (exact match) → budget → engine_manager → html_protector
-                                                      │
-                                                      ▼ translation_manager (status, origin, history)
-                                              cache_helper (MUC) ◀── api::lookup ◀── filter_contenttranslator
-```
+
+Blue nodes are on the write path, orange nodes on the read path, dashed nodes live outside this plugin.
+Dotted arrows are supporting calls. `save_translation` and `set_status` (not drawn) write straight to
+`translation_manager`. Engines are resolved before any text is prepared: `html_protector` runs
+inside the per-engine loop, only for engines that don't support HTML, so each fallback engine gets its own
+protect → validate cycle.
+
+## Registration points
+
+| File | What it registers |
+| --- | --- |
+| `db/events.php` | One observer for every event (`*`), filtered by the tables of registered sources |
+| `db/tasks.php` | `scan_task` every 15 min · `backlog_task` every 30 min · `cleanup_task` daily 03:20 (orphaned translations, old history) |
+| `db/services.php` | `translate_item`, `save_translation`, `set_status`, `get_translation` |
+| `db/caches.php` | `translations` (render lookups) · `courseconfig` |
+| `db/messages.php` | `budget`: threshold alerts to site admins |
+| `lib.php` | Course navigation entry and the `setup_check` status check |
+| Pages | `index.php` dashboard · `edit.php` editor (uses `diff`) · `course.php` · `wizard.php` · `settings.php` |
 
 ## Core concepts
 

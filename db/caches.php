@@ -41,4 +41,14 @@ $definitions = [
         'staticacceleration' => true,
         'staticaccelerationsize' => 100,
     ],
+
+    // Single-use nonces of the Wunderbyte trial back-channel check (trial_challenge.php). Must be shared
+    // between web nodes and never served from a static copy, or a consumed nonce could be echoed again.
+    'trialnonce' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'staticacceleration' => false,
+        'ttl' => 600,
+    ],
+
 ];

@@ -46,5 +46,10 @@ if (class_exists(\local_contenttranslator\api::class)) { ... }
 | `local_contenttranslator_save_translation(translationid, text, format, review, timemodified)` | save a human edit, optional review, optimistic concurrency | translate (+ review) |
 | `local_contenttranslator_set_status(translationid, action, historyid)` | `review`, `lock`, `unlock`, `acceptsuggestion`, `keepprevious`, `requeue`, `delete`, `rollback` | review / translate |
 | `local_contenttranslator_get_translation(text, lang, contextid)` | render lookup (Moodle App, custom front ends) | – |
+| `local_contenttranslator_request_trial_key(consented, strategy, confirmoverwrite)` | start the free Wunderbyte trial: reuse the Wunderbyte AI provider of the site or request a key and create the provider | requesttrial (system) |
 
-All functions are AJAX-enabled and validate the item context.
+All functions are AJAX-enabled and validate the item context. `request_trial_key` validates the system context
+and the sesskey. It returns `success`, `message` and a machine readable `code`: `created`, `reused`,
+`noconsent`, `needsconfirm`, `noprovider`, `noconnection`, `unreachable`, `alreadyused`, `iplimit`,
+`globallimit`, `ratelimited`, `unavailable`, `failed`. Without `consented` no key is requested; reusing an
+existing Wunderbyte provider needs no consent because nothing is sent to Wunderbyte.

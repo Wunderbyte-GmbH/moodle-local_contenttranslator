@@ -36,7 +36,7 @@ class deepl_engine implements engine {
             $results[$segment->id] = new result(
                 id: $segment->id, success: true, text: $translated, model: 'deepl',
             );
-            // On errors: new result($segment->id, false, '', $message, $ratelimited);
+            // On errors: new result($segment->id, false, '', $message, $ratelimited, retryable: $temporary);
         }
         return $results;
     }
@@ -47,6 +47,12 @@ Contract:
 
 - Return one `result` per segment. `ratelimited = true` makes the task back off and retry later
   instead of failing the item.
+- `retryable = true` marks a failure that is probably temporary (gateway timeout, an answer that was cut off).
+  The pipeline calls the engine once more with the same prompt; a second failure fails the item. Use it for
+  single items that went wrong, `ratelimited` for "stop the whole job".
+- Never return an answer that was cut off as a success. Check the finish reason of the provider: a text that
+  stopped because of the length limit is a failed result, not a translation. LLMs that reason before they
+  answer can return their partial reasoning as content.
 - Engines with `supports_html() === false` receive protected text: markup and syntax are replaced by
   `<ph id="N"/>` placeholders that must be returned unchanged, each exactly once, tag placeholders in
   order. The pipeline validates this and retries once with `options['strict'] = true`.

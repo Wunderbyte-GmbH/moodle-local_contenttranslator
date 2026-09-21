@@ -25,6 +25,7 @@
 use local_contenttranslator\config;
 use local_contenttranslator\engine\engine_manager;
 use local_contenttranslator\form\wizard_form;
+use local_contenttranslator\trial\trial_provisioner;
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
@@ -92,5 +93,15 @@ if ($engine && !$engine->is_available()) {
         'warning'
     );
 }
+// Free Wunderbyte trial: for a site without a working AI provider, or one that already uses the Wunderbyte provider.
+if (has_capability('local/contenttranslator:requesttrial', context_system::instance())) {
+    $coreai = engine_manager::get_engine('core_ai');
+    $trialcontext = (new trial_provisioner())->get_ui_context($coreai !== null && $coreai->is_available());
+    if ($trialcontext) {
+        echo $OUTPUT->render_from_template('local_contenttranslator/trial_box', $trialcontext);
+        $PAGE->requires->js_call_amd('local_contenttranslator/trial', 'init');
+    }
+}
 $form->display();
+
 echo $OUTPUT->footer();

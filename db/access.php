@@ -85,4 +85,15 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
+    // Start the Wunderbyte free trial (requests a key and creates the AI provider). Writes site-wide AI
+    // provider configuration, hence system context only; managers may onboard, like in the booking agent.
+    'local/contenttranslator:requesttrial' => [
+        'riskbitmask' => RISK_CONFIG,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+
 ];

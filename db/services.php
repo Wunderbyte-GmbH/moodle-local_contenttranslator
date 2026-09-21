@@ -46,6 +46,13 @@ $functions = [
         'ajax' => true,
         'capabilities' => 'local/contenttranslator:review',
     ],
+    'local_contenttranslator_request_trial_key' => [
+        'classname' => 'local_contenttranslator\external\request_trial_key',
+        'description' => 'Start the Wunderbyte free trial: reuse the Wunderbyte AI provider of the site or request a key.',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/contenttranslator:requesttrial',
+    ],
     'local_contenttranslator_get_translation' => [
         'classname' => 'local_contenttranslator\external\get_translation',
         'description' => 'Look up the translation of a text for a language (render lookup, never calls an engine).',

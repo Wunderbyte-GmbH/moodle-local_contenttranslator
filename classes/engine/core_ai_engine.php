@@ -28,6 +28,19 @@ use local_contenttranslator\config;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class core_ai_engine implements engine {
+    /** @var string[] Finish reasons of an answer that is cut off or withheld: never stored as translation. */
+    private const BAD_FINISH_REASONS = ['length', 'max_tokens', 'content_filter'];
+
+    /** @var int[] HTTP codes of a temporary problem at the gateway or the provider: worth one more try. */
+    private const TRANSIENT_CODES = [502, 504];
+
+    /**
+     * @var int Longest source text (characters) whose cut-off answer is retried. A short text never needs the
+     *          whole output limit, so a cut-off answer means the model got stuck and a second try usually works.
+     *          A long text is cut off at the same place again.
+     */
+    private const RETRY_CUT_OFF_MAX_CHARS = 4000;
+
     #[\Override]
     public function get_name(): string {
         return 'core_ai';
@@ -197,29 +210,50 @@ class core_ai_engine implements engine {
         try {
             $response = $this->process($action);
         } catch (\Throwable $e) {
-            return new result($segment->id, false, '', $e->getMessage(), $this->is_rate_limit_message($e->getMessage()));
+            $message = $e->getMessage();
+            return new result(
+                $segment->id,
+                false,
+                '',
+                $message,
+                $this->is_rate_limit_message($message),
+                retryable: $this->is_transient_message($message),
+            );
         }
         if (!$response->get_success()) {
             $code = (int)$response->get_errorcode();
             $message = (string)$response->get_errormessage();
             $ratelimited = in_array($code, [429, 503, 529], true) || $this->is_rate_limit_message($message);
-            return new result($segment->id, false, '', trim($code . ' ' . $message), $ratelimited);
+            $retryable = in_array($code, self::TRANSIENT_CODES, true) || $this->is_transient_message($message);
+            return new result($segment->id, false, '', trim($code . ' ' . $message), $ratelimited, retryable: $retryable);
         }
         $data = $response->get_response_data();
+        $model = $data['model'] ?? ($data['fingerprint'] ?? null);
+        $prompttokens = (int)($data['prompttokens'] ?? 0);
+        $completiontokens = (int)($data['completiontokens'] ?? 0);
+
+        // An answer that was cut off (or withheld) is not a translation. Behind a reasoning model the partial
+        // reasoning arrives as normal content, so it cannot be told apart by its text: only the finish reason
+        // does. The call was billed, so model and tokens are still reported.
+        $finishreason = strtolower(trim((string)($data['finishreason'] ?? '')));
+        if (in_array($finishreason, self::BAD_FINISH_REASONS, true)) {
+            return new result(
+                $segment->id,
+                false,
+                '',
+                get_string('error:truncated', 'local_contenttranslator', $finishreason),
+                model: $model,
+                prompttokens: $prompttokens,
+                completiontokens: $completiontokens,
+                retryable: $finishreason !== 'content_filter' && mb_strlen($segment->text) <= self::RETRY_CUT_OFF_MAX_CHARS,
+            );
+        }
+
         $text = html_protector::clean_llm_output((string)($data['generatedcontent'] ?? ''));
         if ($text === '') {
             return new result($segment->id, false, '', 'empty response');
         }
-        return new result(
-            $segment->id,
-            true,
-            $text,
-            '',
-            false,
-            $data['model'] ?? ($data['fingerprint'] ?? null),
-            (int)($data['prompttokens'] ?? 0),
-            (int)($data['completiontokens'] ?? 0),
-        );
+        return new result($segment->id, true, $text, '', false, $model, $prompttokens, $completiontokens);
     }
 
     /**
@@ -240,5 +274,18 @@ class core_ai_engine implements engine {
      */
     protected function is_rate_limit_message(string $message): bool {
         return (bool)preg_match('~rate ?limit|too many requests|429|quota|overloaded~i', $message);
+    }
+
+    /**
+     * Heuristic detection of a temporary connection or gateway problem in an error message.
+     *
+     * Moodle 5.2 hides the provider message outside developer debugging, so the HTTP code is checked first
+     * (see TRANSIENT_CODES); this catches exceptions such as a cURL timeout.
+     *
+     * @param string $message
+     * @return bool
+     */
+    protected function is_transient_message(string $message): bool {
+        return (bool)preg_match('~\b50[24]\b|bad gateway|gateway time-?out|timed out|timeout~i', $message);
     }
 }

@@ -31,10 +31,11 @@ final class result {
      * @param bool $success
      * @param string $text Translated text.
      * @param string $error Error message.
-     * @param bool $ratelimited True when the engine asked us to back off.
+     * @param bool $ratelimited True when the engine asked us to back off (the whole job pauses).
      * @param string|null $model Model used.
      * @param int $prompttokens
      * @param int $completiontokens
+     * @param bool $retryable True when the failure is probably temporary: the pipeline calls the engine once more.
      */
     public function __construct(
         /** @var string Segment id */
@@ -53,6 +54,8 @@ final class result {
         public readonly int $prompttokens = 0,
         /** @var int Completion tokens */
         public readonly int $completiontokens = 0,
+        /** @var bool Retryable */
+        public readonly bool $retryable = false,
     ) {
     }
 }

@@ -158,6 +158,10 @@ final class translator {
                 }
                 if (!$result->success) {
                     $lasterror = $result->error;
+                    if ($result->retryable && $attempt === 0) {
+                        // Probably temporary (gateway timeout, a model that got stuck): one more call, same prompt.
+                        continue;
+                    }
                     break;
                 }
                 $output = $result->text;

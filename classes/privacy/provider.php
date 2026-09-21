@@ -63,6 +63,10 @@ class provider implements
             'sourcelang' => 'privacy:metadata:external:sourcelang',
             'targetlang' => 'privacy:metadata:external:targetlang',
         ], 'privacy:metadata:external');
+        $collection->add_external_location_link('llm.wunderbyte.at', [
+            'wwwroot' => 'privacy:metadata:trial:wwwroot',
+            'ip' => 'privacy:metadata:trial:ip',
+        ], 'privacy:metadata:trial');
         return $collection;
     }
 

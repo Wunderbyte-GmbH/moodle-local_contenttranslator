@@ -39,6 +39,8 @@ class scripted_engine implements engine {
     public const ERROR = 'error';
     /** Answer: rate limited */
     public const RATELIMIT = 'ratelimit';
+    /** Answer: temporary failure (gateway timeout) that is worth one more try */
+    public const TRANSIENT = 'transient';
 
     /** @var array[] Recorded calls: text, sourcelang, targetlang, options */
     public array $calls = [];
@@ -146,6 +148,7 @@ class scripted_engine implements engine {
                 ),
                 self::ERROR => new result($segment->id, false, '', '500 upstream failure'),
                 self::RATELIMIT => new result($segment->id, false, '', '429 too many requests', true),
+                self::TRANSIENT => new result($segment->id, false, '', '504 gateway timeout', false, null, 0, 0, true),
                 default => new result($segment->id, true, '[' . $this->name . '] ' . $segment->text, '', false, 'm1'),
             };
         }

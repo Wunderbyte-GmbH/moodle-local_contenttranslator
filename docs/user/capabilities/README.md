@@ -7,6 +7,7 @@ Defined in `db/access.php`; adjust per role under *Site administration → Users
 | Capability | Context | Default roles | Allows |
 |---|---|---|---|
 | `local/contenttranslator:manage` | system | manager | plugin settings, wizard, site dashboard |
+| `local/contenttranslator:requesttrial` | system | manager | start the free Wunderbyte trial (writes the site-wide AI provider configuration, so it carries the configuration risk) |
 | `local/contenttranslator:configurecourse` | course | editing teacher, manager | course translation settings |
 | `local/contenttranslator:translate` | course | editing teacher, manager | edit translations, translate now, requeue |
 | `local/contenttranslator:review` | course | editing teacher, manager | mark reviewed, lock/unlock, accept suggestion, delete, exclude |

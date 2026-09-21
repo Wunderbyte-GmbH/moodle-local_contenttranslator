@@ -1,0 +1,68 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_contenttranslator/trial_consent_modal
+
+    Data-protection consent shown in a modal before the Wunderbyte trial key is requested. The consent
+    checkbox gates the accept button (see amd/src/trial.js).
+
+    Context variables required for this template:
+    * overwrite - Moodle 4.5: starting the trial replaces an existing provider configuration
+
+    Example context (json):
+    {
+        "overwrite": true
+    }
+}}
+<div class="local-contenttranslator-trial-consent">
+    <p class="mb-3">{{#str}}trial_consent_intro, local_contenttranslator{{/str}}</p>
+
+    <div class="mb-3">
+        <h6><strong>{{#str}}trial_consent_data_heading, local_contenttranslator{{/str}}</strong></h6>
+        <p class="mb-0">{{#str}}trial_consent_data_body, local_contenttranslator{{/str}}</p>
+    </div>
+
+    <div class="mb-3">
+        <h6><strong>{{#str}}trial_consent_content_heading, local_contenttranslator{{/str}}</strong></h6>
+        <p class="mb-0">{{#str}}trial_consent_content_body, local_contenttranslator{{/str}}</p>
+    </div>
+
+    <div class="mb-3">
+        <h6><strong>{{#str}}trial_consent_llm_heading, local_contenttranslator{{/str}}</strong></h6>
+        <p class="mb-1">
+            {{#str}}
+                trial_consent_llm_body, local_contenttranslator,
+                <a href="{{#str}}trial_consent_llm_url, local_contenttranslator{{/str}}" target="_blank" rel="noopener noreferrer">{{#str}}trial_consent_llm_link_label, local_contenttranslator{{/str}}</a>, <a href="{{#str}}trial_consent_llm_url2, local_contenttranslator{{/str}}" target="_blank" rel="noopener noreferrer">{{#str}}trial_consent_llm_link_label2, local_contenttranslator{{/str}}</a>, <a href="{{#str}}trial_consent_llm_url3, local_contenttranslator{{/str}}" target="_blank" rel="noopener noreferrer">{{#str}}trial_consent_llm_link_label3, local_contenttranslator{{/str}}</a>
+            {{/str}}
+        </p>
+        <p class="mb-0 text-muted small">{{#str}}trial_consent_llm_alternative, local_contenttranslator{{/str}}</p>
+    </div>
+
+    {{#overwrite}}
+        <div class="alert alert-warning">{{#str}}trial_overwrite_warning, local_contenttranslator{{/str}}</div>
+    {{/overwrite}}
+
+    <hr>
+
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="local-contenttranslator-trial-consent-checkbox"
+            data-region="local-contenttranslator-trial-consent-checkbox">
+        <label class="form-check-label" for="local-contenttranslator-trial-consent-checkbox">
+            {{#str}}trial_consent_checkbox, local_contenttranslator{{/str}}
+        </label>
+    </div>
+</div>

@@ -35,6 +35,11 @@ and DeepL, and enforceable. Token usage of the Moodle AI subsystem is recorded a
 On a fresh install automatic (on save, backlog) and bulk translation are **off until a monthly budget
 is set**. On-demand *Translate now* in the editor works immediately. No surprise bills.
 
+This holds for the free Wunderbyte trial as well. The trial credit belongs to the **site** and is shared with the
+other Wunderbyte AI features (for example the booking agent), and bulk translation uses it up quickly. So while a
+Wunderbyte provider is in use, the setup wizard suggests no budget and leaves automatic translation off; you set
+a budget on purpose. See [Setup](../setup/README.md#8-free-wunderbyte-trial).
+
 ## 3. What counts
 
 - Only the visible text of a field (markup stripped) counts.

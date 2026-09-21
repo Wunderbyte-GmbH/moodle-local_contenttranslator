@@ -32,6 +32,7 @@ correct the result in a dedicated workbench.
 | Add another translation engine (DeepL, Azure, ...) | [Engine API](developer-guides/ENGINE_API.md) |
 | Translate texts in e-mails, PDFs or tables from PHP | [PHP API and web services](developer-guides/PHP_API_AND_WEBSERVICES.md) |
 | Understand how it all fits together | [Architecture](developer-guides/ARCHITECTURE.md) |
+| See how the free Wunderbyte trial works (flow charts, result codes) | [Trial workflow](developer-guides/TRIAL_WORKFLOW.md) |
 
 Important distinctions for AI/explain tasks:
 
