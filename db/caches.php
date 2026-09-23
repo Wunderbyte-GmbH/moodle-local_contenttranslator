@@ -41,7 +41,15 @@ $definitions = [
         'staticacceleration' => true,
         'staticaccelerationsize' => 100,
     ],
-
+    // Usage percentage of the site's Wunderbyte key (trial or bought), read from the shop's privacy-preserving
+    // /api/shop/usage endpoint. Cached so the dashboard does not call out on every page load and never trips
+    // the service's own per-IP rate limit.
+    'aiusage' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'staticacceleration' => false,
+        'ttl' => 300,
+    ],
     // Single-use nonces of the Wunderbyte trial back-channel check (trial_challenge.php). Must be shared
     // between web nodes and never served from a static copy, or a consumed nonce could be echoed again.
     'trialnonce' => [

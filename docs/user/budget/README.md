@@ -21,6 +21,7 @@
 4. [Notifications and pausing](#4-notifications-and-pausing)
 5. [Estimates](#5-estimates)
 6. [Exceeding the budget on demand](#6-exceeding-the-budget-on-demand)
+7. [AI credit (Wunderbyte trial or bought key)](#7-ai-credit-wunderbyte-trial-or-bought-key)
 
 ---
 
@@ -29,6 +30,11 @@
 The budget unit is **source characters sent to an engine**: known before the call, identical for LLMs
 and DeepL, and enforceable. Token usage of the Moodle AI subsystem is recorded as well (usage log and
 `ai_action_register`) for reporting.
+
+Wherever the dashboard, the wizard or a notification shows a character count, it also shows a rough
+token estimate next to it (a fixed 4 characters per token, not the exact count of any specific model's
+tokenizer). This is display only: the stored and enforced unit stays characters, since that is the only
+value known before an engine call and the only one that works the same for every engine, including DeepL.
 
 ## 2. Safe default: nothing automatic without a budget
 
@@ -77,3 +83,15 @@ shown next to it.
 
 Users with the capability `local/contenttranslator:exceedbudget` may still translate single items on
 demand when the budget is exhausted. Automatic jobs never exceed it.
+
+## 7. AI credit (Wunderbyte trial or bought key)
+
+While the site uses a Wunderbyte AI provider (see [Setup, section 8](../setup/README.md#8-free-wunderbyte-trial)),
+users with the capability `local/contenttranslator:viewreports` (in addition to `local/contenttranslator:manage`,
+which already gates the character budget bar) see an **AI credit** tile next to it on the dashboard: the share of
+that shared Wunderbyte credit already used, the key's expiry date and a *Buy more* link once it is running low.
+
+The percentage comes from Wunderbyte's usage endpoint, which deliberately never reveals the underlying euro
+amount — only a share and the expiry, refreshed at most every 5 minutes. A key without a spending cap shows
+"Unlimited AI credit" instead of a bar. If the lookup fails (service unreachable, rate-limited) the tile is
+simply hidden rather than showing broken data.

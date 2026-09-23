@@ -56,6 +56,9 @@ class trial_provisioner {
     /** @var int Seconds to wait for the trial service (its own back-channel check and LiteLLM call take a moment). */
     private const HTTP_TIMEOUT = 25;
 
+    /** @var int Seconds to wait for the usage percentage lookup (a quick, unauthenticated call). */
+    private const USAGE_TIMEOUT = 10;
+
     /**
      * Run the trial provisioning.
      *
@@ -550,5 +553,87 @@ class trial_provisioner {
             $message .= ' [' . $debugdetail . ']';
         }
         return ['success' => false, 'message' => $message, 'code' => $code];
+    }
+
+    /**
+     * Usage percentage of this site's Wunderbyte key (trial or bought), cached for 5 minutes.
+     *
+     * Returns null when no usable Wunderbyte provider is configured, the lookup failed, or the service answered
+     * "unavailable". Never exposes euro amounts: /api/shop/usage deliberately answers with a percentage only.
+     *
+     * @return array{unlimited: bool, percent: float, percentremaining: float, expiresat: ?int, shopurl: ?string}|null
+     */
+    public function get_usage(): ?array {
+        $apikey = $this->active_wunderbyte_apikey();
+        if ($apikey === null) {
+            return null;
+        }
+        $cache = cache::make('local_contenttranslator', 'aiusage');
+        $cachekey = 'usage_' . sha1($apikey);
+        $cached = $cache->get($cachekey);
+        if ($cached !== false) {
+            return $cached;
+        }
+        $result = $this->fetch_usage($apikey);
+        $cache->set($cachekey, $result);
+        return $result;
+    }
+
+    /**
+     * The apikey of the site's active Wunderbyte provider, or null when there is none.
+     *
+     * @return string|null
+     */
+    private function active_wunderbyte_apikey(): ?string {
+        $instances = $this->find_wunderbyte_instances();
+        if (!$instances) {
+            return null;
+        }
+        $instance = $this->pick_instance($instances);
+        $apikey = trim((string)(((array)($instance->config ?? []))['apikey'] ?? ''));
+        return $apikey !== '' ? $apikey : null;
+    }
+
+    /**
+     * POST the key to the usage endpoint and normalise the answer.
+     *
+     * @param string $apikey
+     * @return array{unlimited: bool, percent: float, percentremaining: float, expiresat: ?int, shopurl: ?string}|null
+     */
+    private function fetch_usage(string $apikey): ?array {
+        $url = rtrim(self::BASE_URL, '/') . '/api/shop/usage';
+        $request = new Request(
+            'POST',
+            $url,
+            ['Content-Type' => 'application/json', 'Accept' => 'application/json'],
+            json_encode(['apikey' => $apikey]),
+        );
+
+        $client = \core\di::get(http_client::class);
+        try {
+            $response = $client->send($request, [
+                RequestOptions::HTTP_ERRORS => false,
+                RequestOptions::TIMEOUT => self::USAGE_TIMEOUT,
+            ]);
+        } catch (GuzzleException $e) {
+            return null;
+        }
+
+        if ($response->getStatusCode() !== 200) {
+            return null;
+        }
+        $body = json_decode((string)$response->getBody(), true);
+        $state = (is_array($body) && is_string($body['state'] ?? null)) ? $body['state'] : 'unavailable';
+        if ($state === 'unavailable') {
+            return null;
+        }
+
+        return [
+            'unlimited' => $state === 'unlimited',
+            'percent' => (float)($body['percent'] ?? 0),
+            'percentremaining' => (float)($body['percent_remaining'] ?? 100),
+            'expiresat' => !empty($body['expiresat']) ? strtotime((string)$body['expiresat']) : null,
+            'shopurl' => !empty($body['shopurl']) ? (string)$body['shopurl'] : null,
+        ];
     }
 }

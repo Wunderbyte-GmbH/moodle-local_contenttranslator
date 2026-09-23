@@ -568,4 +568,87 @@ final class trial_test extends \advanced_testcase {
         $this->expectException(\moodle_exception::class);
         request_trial_key::execute(true, 'openai');
     }
+
+    /**
+     * Without a Wunderbyte provider there is no key to ask the usage of.
+     */
+    public function test_usage_without_provider_is_null(): void {
+        $this->assertNull((new trial_provisioner())->get_usage());
+        $this->assertCount(0, $this->history, 'No provider, so no call to the service');
+    }
+
+    /**
+     * A normal "ok" answer is mapped, and only the key itself is sent (no site identifier).
+     */
+    public function test_usage_ok_is_mapped(): void {
+        $this->create_wunderbyte_provider();
+        $this->respond(200, [
+            'state' => 'ok',
+            'percent' => 12.5,
+            'percent_remaining' => 87.5,
+            'resetat' => null,
+            'expiresat' => '2026-10-23T06:39:02Z',
+            'shopurl' => 'https://showroom.wunderbyte.at/course/shop',
+        ]);
+
+        $usage = (new trial_provisioner())->get_usage();
+
+        $this->assertNotNull($usage);
+        $this->assertFalse($usage['unlimited']);
+        $this->assertEqualsWithDelta(12.5, $usage['percent'], 0.001);
+        $this->assertEqualsWithDelta(87.5, $usage['percentremaining'], 0.001);
+        $this->assertSame(strtotime('2026-10-23T06:39:02Z'), $usage['expiresat']);
+        $this->assertSame('https://showroom.wunderbyte.at/course/shop', $usage['shopurl']);
+        $this->assertCount(1, $this->history);
+        $sent = json_decode((string)$this->history[0]['request']->getBody(), true);
+        $this->assertSame(['apikey'], array_keys($sent), 'Only the key is sent, never the site URL');
+        $this->assertSame('sk-existing-0123456789abcdefghij', $sent['apikey']);
+    }
+
+    /**
+     * An "unlimited" key has no percentage to show; only the flag matters.
+     */
+    public function test_usage_unlimited_is_mapped(): void {
+        $this->create_wunderbyte_provider();
+        $this->respond(200, ['state' => 'unlimited', 'expiresat' => null, 'shopurl' => null]);
+
+        $usage = (new trial_provisioner())->get_usage();
+
+        $this->assertNotNull($usage);
+        $this->assertTrue($usage['unlimited']);
+    }
+
+    /**
+     * "unavailable" (rate limited, unrecognised key, ...) hides the tile instead of showing broken data.
+     */
+    public function test_usage_unavailable_is_null(): void {
+        $this->create_wunderbyte_provider();
+        $this->respond(200, ['state' => 'unavailable']);
+
+        $this->assertNull((new trial_provisioner())->get_usage());
+    }
+
+    /**
+     * A non-200 answer or an unreachable service also hides the tile rather than breaking the dashboard.
+     */
+    public function test_usage_http_error_is_null(): void {
+        $this->create_wunderbyte_provider();
+        $this->respond(500, []);
+
+        $this->assertNull((new trial_provisioner())->get_usage());
+    }
+
+    /**
+     * The percentage is cached: a second call within the TTL does not ask the service again.
+     */
+    public function test_usage_is_cached(): void {
+        $this->create_wunderbyte_provider();
+        $this->respond(200, ['state' => 'ok', 'percent' => 1.0, 'percent_remaining' => 99.0]);
+
+        $first = (new trial_provisioner())->get_usage();
+        $second = (new trial_provisioner())->get_usage();
+
+        $this->assertSame($first, $second);
+        $this->assertCount(1, $this->history, 'Second call is served from the aiusage cache');
+    }
 }

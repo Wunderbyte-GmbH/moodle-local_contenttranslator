@@ -335,6 +335,11 @@ final class automation_test extends \advanced_testcase {
         $log(1);
         $this->assertSame(1, $messages->count());
         $this->assertStringContainsString('80 %', $messages->get_messages()[0]->subject);
+        $this->assertStringContainsString(
+            get_string('tokens', 'local_contenttranslator'),
+            $messages->get_messages()[0]->fullmessage,
+            'The body names the rough token estimate next to the character count'
+        );
         $log(5);
         $this->assertSame(1, $messages->count(), 'No repeat within the same level');
         $log(15);
@@ -358,6 +363,14 @@ final class automation_test extends \advanced_testcase {
         set_config('price_pseudo', 10, 'local_contenttranslator');
         $this->assertEqualsWithDelta(5.0, budget::estimate(500000, 'pseudo'), 0.0001);
         $this->assertStringContainsString('(≈ 5.00 €)', budget::format(500000, 'pseudo'));
+
+        // The token count is a display-only estimate (4 characters per token); the budget itself stays in
+        // characters, since that is the only unit known before the call and enforceable across all engines.
+        $this->assertSame(125000, budget::chars_to_tokens(500000));
+        $this->assertStringContainsString(
+            '≈ ' . number_format(125000) . ' ' . get_string('tokens', 'local_contenttranslator'),
+            budget::format(500000, 'pseudo')
+        );
 
         $course = $this->getDataGenerator()->create_course(['fullname' => 'Estimate']);
         $page1 = $this->getDataGenerator()->create_module('page', [

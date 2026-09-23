@@ -22,7 +22,8 @@
     Context variables required for this template:
     * langs - array of {lang, name, total, done, reviewed, machine, stale, missing, failed, queued, locked, percent,
       reviewedpercent, machinepercent, stalepercent, filterurl}
-    * budget - {limit, used, percent, hasbudget, warning, paused, changeurl}
+    * budget - {limit, used, limittokens, usedtokens, percent, hasbudget, warning, paused, changeurl}
+    * budget.aicredit (optional) - {unlimited, percent, expires, daysleft, shopurl}
 
     Example context (json):
     {
@@ -75,8 +76,9 @@
     {{#hasbudget}}
     <div class="d-flex justify-content-between small">
         <span>{{#str}}budgetusage, local_contenttranslator{{/str}}</span>
-        <span>{{used}} / {{limit}} {{#str}}characters, local_contenttranslator{{/str}} ({{percent}} %)
-            · <a href="{{changeurl}}">{{#str}}budgetchange, local_contenttranslator{{/str}}</a></span>
+        <span>{{used}} / {{limit}} {{#str}}characters, local_contenttranslator{{/str}}
+            (≈ {{usedtokens}} / ≈ {{limittokens}} {{#str}}tokens, local_contenttranslator{{/str}})
+            ({{percent}} %) · <a href="{{changeurl}}">{{#str}}budgetchange, local_contenttranslator{{/str}}</a></span>
     </div>
     <div class="progress" style="height: 0.6rem;" role="progressbar" aria-valuenow="{{percent}}" aria-valuemin="0" aria-valuemax="100">
         <div class="progress-bar {{#paused}}bg-danger{{/paused}}{{^paused}}{{#warning}}bg-warning{{/warning}}{{^warning}}bg-primary{{/warning}}{{/paused}}" style="width: {{percent}}%"></div>
@@ -85,5 +87,29 @@
     {{^hasbudget}}
     <div class="alert alert-warning">{{#str}}nobudgetwarning, local_contenttranslator{{/str}}</div>
     {{/hasbudget}}
+    {{#aicredit}}
+    <div class="aiprovider-wunderbyte-usage mt-2">
+        <div class="d-flex justify-content-between align-items-baseline mb-1">
+            <span class="font-weight-bold">{{#str}}aicredit_heading, local_contenttranslator{{/str}}</span>
+        </div>
+        {{^unlimited}}
+        <div class="progress" style="height: 0.75rem;" role="progressbar" aria-valuenow="{{percent}}"
+             aria-valuemin="0" aria-valuemax="100" aria-label="{{#str}}aicredit_heading, local_contenttranslator{{/str}}">
+            <div class="progress-bar bg-success" style="width: {{percent}}%;"></div>
+        </div>
+        <div class="d-flex justify-content-between small text-muted mt-1">
+            <span>{{#str}}aicredit_used, local_contenttranslator, {{percent}}{{/str}}</span>
+            <span>
+                {{#expires}}{{#str}}aicredit_expires, local_contenttranslator, {{expires}}{{/str}}{{/expires}}
+                {{#daysleft}}<span class="badge bg-warning text-dark">{{#str}}aicredit_daysleft, local_contenttranslator, {{daysleft}}{{/str}}</span>{{/daysleft}}
+            </span>
+        </div>
+        {{/unlimited}}
+        {{#unlimited}}
+        <div class="small text-muted mt-1">{{#str}}aicredit_unlimited, local_contenttranslator{{/str}}</div>
+        {{/unlimited}}
+        {{#shopurl}}<a href="{{shopurl}}" class="small">{{#str}}aicredit_buymore, local_contenttranslator{{/str}}</a>{{/shopurl}}
+    </div>
+    {{/aicredit}}
 </div>
 {{/budget}}

@@ -32,6 +32,8 @@ final class budget {
     public const TRIGGER_BACKLOG = 'backlog';
     /** Trigger: interactive translate now */
     public const TRIGGER_ONDEMAND = 'ondemand';
+    /** @var int Rough characters-per-token estimate for display only; the budget itself is enforced in characters. */
+    private const CHARS_PER_TOKEN = 4;
 
     /**
      * Monthly limit in characters, 0 = not set.
@@ -149,6 +151,17 @@ final class budget {
     }
 
     /**
+     * Rough token estimate for a character count. Display only: budgets are stored and enforced in characters,
+     * the only unit known before an engine call and enforceable across all engines (including DeepL).
+     *
+     * @param int $chars
+     * @return int
+     */
+    public static function chars_to_tokens(int $chars): int {
+        return (int)round($chars / self::CHARS_PER_TOKEN);
+    }
+
+    /**
      * Formatted "1,234,567 characters (≈ 12.34 €)".
      *
      * @param int $chars
@@ -157,6 +170,9 @@ final class budget {
      */
     public static function format(int $chars, string $engine): string {
         $text = number_format($chars) . ' ' . get_string('characters', 'local_contenttranslator');
+        $tokens = number_format(self::chars_to_tokens($chars));
+        $text .= ' (≈ ' . $tokens . ' ' . get_string('tokens', 'local_contenttranslator') . ')';
+
         if (self::get_price($engine) > 0) {
             $text .= ' (≈ ' . number_format(self::estimate($chars, $engine), 2) . ' €)';
         }
@@ -198,7 +214,13 @@ final class budget {
             'local_contenttranslator'
         );
 
-        $a = (object)['percent' => $percent, 'used' => number_format($used), 'limit' => number_format($limit)];
+        $a = (object)[
+            'percent' => $percent,
+            'used' => number_format($used),
+            'limit' => number_format($limit),
+            'usedtokens' => number_format(self::chars_to_tokens($used)),
+            'limittokens' => number_format(self::chars_to_tokens($limit)),
+        ];
         $key = ['warning' => 'budgetnotification', '100' => 'budgetexhausted', 'paused' => 'budgetpaused'][$level];
         $subject = get_string($key . ':subject', 'local_contenttranslator', $a);
         $body = get_string($key . ':body', 'local_contenttranslator', $a);

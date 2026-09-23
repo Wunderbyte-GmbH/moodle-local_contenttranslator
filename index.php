@@ -26,6 +26,7 @@ use local_contenttranslator\budget;
 use local_contenttranslator\config;
 use local_contenttranslator\item_manager;
 use local_contenttranslator\queue;
+use local_contenttranslator\trial\trial_provisioner;
 use local_contenttranslator\table\items_table;
 use local_contenttranslator\translation_manager;
 
@@ -128,8 +129,11 @@ if ($action !== '' && confirm_sesskey()) {
         ];
         $table->data = $rows;
         echo html_writer::table($table);
-        $remaining = budget::get_limit() - budget::get_used();
-        echo html_writer::tag('p', get_string('budgetremaining', 'local_contenttranslator', number_format(max(0, $remaining))));
+        $remaining = max(0, budget::get_limit() - budget::get_used());
+        echo html_writer::tag('p', get_string('budgetremaining', 'local_contenttranslator', (object)[
+            'chars' => number_format($remaining),
+            'tokens' => number_format(budget::chars_to_tokens($remaining)),
+        ]));
         if ($totalchars > $remaining) {
             echo $OUTPUT->notification(get_string('estimateexceedsbudget', 'local_contenttranslator'), 'warning');
         }
@@ -230,11 +234,29 @@ if (has_capability('local/contenttranslator:manage', context_system::instance())
         'hasbudget' => $limit > 0,
         'limit' => number_format($limit),
         'used' => number_format($used),
+        'limittokens' => number_format(budget::chars_to_tokens($limit)),
+        'usedtokens' => number_format(budget::chars_to_tokens($used)),
         'percent' => $limit > 0 ? min(100, (int)round($used / $limit * 100)) : 0,
         'warning' => $limit > 0 && $warnpercent > 0 && $used / $limit * 100 >= $warnpercent,
         'paused' => budget::is_paused(),
         'changeurl' => $changeurl->out(false),
     ];
+    if (has_capability('local/contenttranslator:viewreports', context_system::instance())) {
+        $usage = (new trial_provisioner())->get_usage();
+        if ($usage !== null) {
+            $statdata['aicredit'] = [
+                'unlimited' => $usage['unlimited'],
+                'percent' => $usage['unlimited'] ? null : (int)round($usage['percent']),
+                'expires' => $usage['expiresat']
+                    ? userdate($usage['expiresat'], get_string('strftimedatefullshort', 'langconfig'))
+                    : null,
+                'daysleft' => $usage['expiresat']
+                    ? max(0, (int)ceil(($usage['expiresat'] - time()) / DAYSECS))
+                    : null,
+                'shopurl' => $usage['shopurl'],
+            ];
+        }
+    }
 }
 echo $OUTPUT->render_from_template('local_contenttranslator/stats', $statdata);
 

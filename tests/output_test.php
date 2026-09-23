@@ -58,12 +58,52 @@ final class output_test extends \advanced_testcase {
                 'missing' => 2, 'failed' => 1, 'queued' => 0, 'locked' => 0, 'percent' => 60, 'reviewedpercent' => 20,
                 'machinepercent' => 40, 'stalepercent' => 10, 'filterurl' => '#',
             ]],
-            'budget' => ['hasbudget' => true, 'limit' => '2,000,000', 'used' => '120,000', 'percent' => 6, 'warning' => false],
+            'budget' => [
+                'hasbudget' => true, 'limit' => '2,000,000', 'used' => '120,000',
+                'limittokens' => '500,000', 'usedtokens' => '30,000', 'percent' => 6, 'warning' => false,
+            ],
         ]);
         $this->assertStringContainsString('Deutsch', $html);
         $this->assertStringContainsString('2,000,000', $html);
+        $this->assertStringContainsString('500,000', $html);
+        $this->assertStringContainsString(get_string('tokens', 'local_contenttranslator'), $html);
         $html = $OUTPUT->render_from_template('local_contenttranslator/stats', ['langs' => [], 'budget' => ['hasbudget' => false]]);
         $this->assertStringContainsString(get_string('notargetlangs', 'local_contenttranslator'), $html);
+    }
+
+    /**
+     * The AI credit tile only renders when the context provides it (viewreports capability), and shows the
+     * percentage bar, expiry and buy link, or the unlimited note.
+     */
+    public function test_aicredit_tile(): void {
+        global $OUTPUT;
+        $withoutcredit = $OUTPUT->render_from_template('local_contenttranslator/stats', [
+            'langs' => [], 'budget' => ['hasbudget' => false],
+        ]);
+        $this->assertStringNotContainsString(get_string('aicredit_heading', 'local_contenttranslator'), $withoutcredit);
+
+        $html = $OUTPUT->render_from_template('local_contenttranslator/stats', [
+            'langs' => [],
+            'budget' => [
+                'hasbudget' => false,
+                'aicredit' => [
+                    'unlimited' => false, 'percent' => 12, 'expires' => '23. Okt. 2026', 'daysleft' => 30,
+                    'shopurl' => 'https://showroom.wunderbyte.at/course/shop',
+                ],
+            ],
+        ]);
+        $this->assertStringContainsString(get_string('aicredit_heading', 'local_contenttranslator'), $html);
+        $this->assertStringContainsString(get_string('aicredit_used', 'local_contenttranslator', 12), $html);
+        $this->assertStringContainsString(get_string('aicredit_expires', 'local_contenttranslator', '23. Okt. 2026'), $html);
+        $this->assertStringContainsString(get_string('aicredit_daysleft', 'local_contenttranslator', 30), $html);
+        $this->assertStringContainsString('https://showroom.wunderbyte.at/course/shop', $html);
+
+        $unlimited = $OUTPUT->render_from_template('local_contenttranslator/stats', [
+            'langs' => [],
+            'budget' => ['hasbudget' => false, 'aicredit' => ['unlimited' => true]],
+        ]);
+        $this->assertStringContainsString(get_string('aicredit_unlimited', 'local_contenttranslator'), $unlimited);
+        $this->assertStringNotContainsString(get_string('aicredit_used', 'local_contenttranslator', 0), $unlimited);
     }
 
     /**
