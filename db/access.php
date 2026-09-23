@@ -95,5 +95,16 @@ $capabilities = [
             'manager' => CAP_ALLOW,
         ],
     ],
-
+    // Learners may switch to the source text (the "Show original" toggle). Off by default for a role
+    // hides only the button/link; the site-wide "showoriginaltoggle" setting must also be on.
+    'local/contenttranslator:showoriginal' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [
+            'guest' => CAP_ALLOW,
+            'student' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
 ];

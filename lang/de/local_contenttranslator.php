@@ -98,6 +98,7 @@ $string['contenttranslator:exceedbudget'] = 'Auf Abruf übersetzen, auch wenn da
 $string['contenttranslator:manage'] = 'Inhaltsübersetzer verwalten';
 $string['contenttranslator:requesttrial'] = 'Wunderbyte-Testversion starten';
 $string['contenttranslator:review'] = 'Übersetzungen prüfen, sperren und löschen';
+$string['contenttranslator:showoriginal'] = 'Zwischen Übersetzung und Originaltext wechseln';
 $string['contenttranslator:translate'] = 'Übersetzungen bearbeiten';
 $string['contenttranslator:viewreports'] = 'Übersetzungs-Dashboards und Berichte ansehen';
 $string['courseenabled'] = 'Automatische Übersetzung';

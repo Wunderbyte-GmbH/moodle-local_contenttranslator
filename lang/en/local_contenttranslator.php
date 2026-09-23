@@ -98,6 +98,7 @@ $string['contenttranslator:exceedbudget'] = 'Translate on demand when the monthl
 $string['contenttranslator:manage'] = 'Manage the content translator';
 $string['contenttranslator:requesttrial'] = 'Start the Wunderbyte free trial';
 $string['contenttranslator:review'] = 'Review, lock and delete translations';
+$string['contenttranslator:showoriginal'] = 'Switch between the translation and the source text';
 $string['contenttranslator:translate'] = 'Edit translations';
 $string['contenttranslator:viewreports'] = 'View translation dashboards and reports';
 $string['courseenabled'] = 'Automatic translation';

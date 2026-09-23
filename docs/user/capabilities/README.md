@@ -14,6 +14,7 @@ Defined in `db/access.php`; adjust per role under *Site administration → Users
 | `local/contenttranslator:bulktranslate` | course | manager | *Translate course* (creates costs) |
 | `local/contenttranslator:exceedbudget` | system | – | on-demand translation when the monthly budget is exhausted |
 | `local/contenttranslator:viewreports` | course | editing teacher, manager | dashboards |
+| `local/contenttranslator:showoriginal` | course | guest, student, editing teacher, manager | the "Show original" toggle in translated content; without it the toggle is hidden and blocked even via URL |
 
 Typical setups:
 

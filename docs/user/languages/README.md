@@ -60,8 +60,12 @@ In "reviewed only" mode a stale translation is shown only if it had been reviewe
 | One banner per page (default) | one discreet banner at the top of the content area |
 
 The **Show original** toggle (setting) adds a link to the banner; the choice is remembered for the
-session. Translated text carries `lang="xx"`; source text shown to a user of another language is
-wrapped with the source `lang` attribute for assistive technology.
+session. It appears only where real translated content was found (descriptions, book/page content, ...),
+never merely because a course, category or activity name matched, and only for users with the capability
+`local/contenttranslator:showoriginal` (course context; guests, students, editing teachers and managers by
+default) — removing it from a role hides the link and blocks the toggle even via its URL parameter.
+Translated text carries `lang="xx"`; source text shown to a user of another language is wrapped with the
+source `lang` attribute for assistive technology.
 
 ## 6. Language fallback
 
