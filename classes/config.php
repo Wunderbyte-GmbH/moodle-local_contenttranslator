@@ -220,7 +220,9 @@ final class config {
             return false;
         }
         if ($courseid <= 0 || $courseid == SITEID) {
-            return (bool)self::get('defaultcourseenabled', 0);
+            // Site content (categories, front page sections, ...) has its own switch; until it is
+            // saved once it follows the course default, as before.
+            return (bool)self::get('siteenabled', self::get('defaultcourseenabled', 0));
         }
         return self::get_effective($courseid)->enabled;
     }

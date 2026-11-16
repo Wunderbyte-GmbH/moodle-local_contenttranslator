@@ -100,8 +100,10 @@ setting. Plugins that render text without Moodle filters (e-mails, PDFs, table c
 ## Known limitations (v1)
 
 * Learner-generated content (forum posts, submissions, ...) is out of scope by design.
-* Quiz questions, site-level content (blocks, menus, badges), DeepL, TinyMCE plugin, fuzzy translation
-  memory, glossaries and reviewer assignments are planned for later milestones.
+* Site level content is covered only through content sources that implement `get_site_items()` (course
+  categories built in; plugins such as block_sbsection add their own) and needs *Automatic translation for
+  site content* switched on. Quiz questions, blocks in general, menus, badges, DeepL, TinyMCE plugin, fuzzy
+  translation memory, glossaries and reviewer assignments are planned for later milestones.
 * Global search, calendar and a few core pages do not run text filters (core limitations).
 * Places from local_entities are not translated: when local_entities is installed, booking options show
   the entity name instead of their own location and address fields, and entities are not a content source.

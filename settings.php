@@ -85,6 +85,12 @@ if ($hassiteconfig) {
             get_string('defaultcourseenabled_desc', 'local_contenttranslator'),
             0
         ));
+        $settings->add(new admin_setting_configcheckbox(
+            'local_contenttranslator/siteenabled',
+            get_string('siteenabled', 'local_contenttranslator'),
+            get_string('siteenabled_desc', 'local_contenttranslator'),
+            0
+        ));
 
         // Engines.
         $settings->add(new admin_setting_heading(

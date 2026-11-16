@@ -64,5 +64,17 @@ class scan_task extends \core\task\scheduled_task {
         if ($changed) {
             queue::queue_items($changed, budget::TRIGGER_BACKLOG);
         }
+        // Site level items created while automation was off have no translation rows yet and are
+        // not covered by the backlog task (which only sees existing rows): bootstrap them here.
+        if (config::is_auto_enabled_for_course(0)) {
+            $langs = config::get_course_target_langs(0);
+            $pending = queue::ensure_course_translations(0, $langs);
+            if ($pending > 0) {
+                foreach ($langs as $lang) {
+                    queue::queue_course_lang(0, $lang, budget::TRIGGER_BACKLOG, 0, 0);
+                }
+            }
+            mtrace("local_contenttranslator: site content: $pending pending translations.");
+        }
     }
 }

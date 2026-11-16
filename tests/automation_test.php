@@ -48,6 +48,7 @@ final class automation_test extends \advanced_testcase {
         set_config('budgetchars', 1000000, 'local_contenttranslator');
         // The site default is off; these tests exercise the automation, so switch it on explicitly.
         set_config('defaultcourseenabled', 1, 'local_contenttranslator');
+        set_config('siteenabled', 1, 'local_contenttranslator');
         set_config('debounce', 0, 'local_contenttranslator');
         registry::reset();
         engine_manager::reset();
@@ -108,6 +109,7 @@ final class automation_test extends \advanced_testcase {
      */
     public function test_course_default_is_off(): void {
         unset_config('defaultcourseenabled', 'local_contenttranslator');
+        unset_config('siteenabled', 'local_contenttranslator');
         $course = $this->getDataGenerator()->create_course();
         $this->assertFalse(config::is_auto_enabled_for_course((int)$course->id));
 
@@ -283,6 +285,32 @@ final class automation_test extends \advanced_testcase {
         $courseids = array_map(fn($t) => (int)json_decode($t->customdata)->courseid, $this->translate_tasks());
         $this->assertContains((int)$course->id, $courseids);
         $this->assertContains(0, $courseids, 'Site level content (categories) is queued too');
+    }
+
+    /**
+     * Site level items created while automation was off get their translations bootstrapped by the scan (GH-6).
+     */
+    public function test_scan_bootstraps_site_items(): void {
+        global $DB;
+        set_config('defaultcourseenabled', 0, 'local_contenttranslator');
+        set_config('siteenabled', 0, 'local_contenttranslator');
+        $category = $this->getDataGenerator()->create_category(['name' => 'Garden']);
+        item_manager::sync_site();
+        $catitem = item_manager::find('core_course', 'course_categories', 'name', (int)$category->id);
+        $this->assertNotNull($catitem);
+        $this->assertNull(translation_manager::get_for_item((int)$catitem->id, 'de'), 'Automation off: no translation row');
+
+        // Switching site content on makes the next scan create and queue the missing translations.
+        set_config('siteenabled', 1, 'local_contenttranslator');
+        $DB->delete_records('task_adhoc');
+        $this->expectOutputRegex('~site content: [1-9][0-9]* pending~');
+        (new task\scan_task())->execute();
+        $this->assertSame(translation_manager::STATUS_QUEUED, translation_manager::get_for_item((int)$catitem->id, 'de')->status);
+        $courseids = array_map(fn($t) => (int)json_decode($t->customdata)->courseid, $this->translate_tasks());
+        $this->assertContains(0, $courseids);
+        // The course default stays off for courses.
+        $this->assertFalse(config::is_auto_enabled_for_course((int)$this->getDataGenerator()->create_course()->id));
+        $this->assertTrue(config::is_auto_enabled_for_course(0));
     }
 
     /**
