@@ -83,7 +83,15 @@ final class pipeline_test extends \advanced_testcase {
         $this->assertNotNull(item_manager::find('core_course', 'course', 'summary', (int)$course->id));
 
         // Deleting the module removes its items.
-        course_delete_module($page->cmid);
+        if (
+            class_exists(\core_courseformat\formatactions::class)
+            && method_exists(\core_courseformat\local\cmactions::class, 'delete')
+        ) {
+            // Moodle 5.2+ (MDL-86856).
+            \core_courseformat\formatactions::cm($course)->delete($page->cmid);
+        } else {
+            course_delete_module($page->cmid);
+        }
         $this->assertNull(item_manager::find('mod_page', 'page', 'content', (int)$page->id));
     }
 

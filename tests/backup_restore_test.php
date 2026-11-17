@@ -166,7 +166,15 @@ final class backup_restore_test extends \advanced_testcase {
         global $USER;
         [$course, $page, $translation] = $this->create_translated_course();
 
-        $newcm = duplicate_module($course, get_fast_modinfo($course)->get_cm($page->cmid));
+        if (
+            class_exists(\core_courseformat\formatactions::class)
+            && method_exists(\core_courseformat\local\cmactions::class, 'duplicate')
+        ) {
+            // Moodle 5.2+ (MDL-86858).
+            $newcm = \core_courseformat\formatactions::cm($course)->duplicate($page->cmid);
+        } else {
+            $newcm = duplicate_module($course, get_fast_modinfo($course)->get_cm($page->cmid));
+        }
         $newitem = item_manager::find('mod_page', 'page', 'content', (int)$newcm->instance);
         $this->assertNotNull($newitem, 'Duplicated activity has its item');
         $this->assertEquals(\context_module::instance($newcm->id)->id, $newitem->contextid);
