@@ -63,7 +63,12 @@ if ($data = $form->get_data()) {
             $user->lang = $CFG->lang;
             $user->timecreated = time();
             $user->timemodified = time();
-            $serviceuserid = (int)user_create_user($user, false, false);
+            // Moodle 5.3 moved user_create_user() to \core\user::create_user() (MDL-82650); 4.5 - 5.2 have only the old one.
+            if (method_exists(\core\user::class, 'create_user')) {
+                $serviceuserid = \core\user::create_user($user, false, false);
+            } else {
+                $serviceuserid = (int)user_create_user($user, false, false);
+            }
         }
     }
     set_config('serviceuserid', $serviceuserid, 'local_contenttranslator');
