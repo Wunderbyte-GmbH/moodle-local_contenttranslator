@@ -359,8 +359,10 @@ final class engine_pipeline_test extends \advanced_testcase {
         $engine->compute(function (generate_text $action): response_generate_text {
             $response = new response_generate_text(true);
             $text = str_replace(['Hello', 'world'], ['Hallo', 'Welt'], fake_core_ai_engine::prompt_text($action));
+            // Moodle 4.5 has no 'model' in the response data; the engine then reports the fingerprint.
             $response->set_response_data([
-                'generatedcontent' => '"' . $text . '"', 'prompttokens' => '40', 'completiontokens' => '9', 'model' => 'gpt-test',
+                'generatedcontent' => '"' . $text . '"', 'prompttokens' => '40', 'completiontokens' => '9',
+                'model' => 'gpt-test', 'fingerprint' => 'gpt-test',
             ]);
             return $response;
         });
