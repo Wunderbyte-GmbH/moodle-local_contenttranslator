@@ -57,6 +57,9 @@ class setup_check extends check {
         if (budget::get_limit() <= 0) {
             $problems[] = get_string('check:nobudget', 'local_contenttranslator');
             $status = result::WARNING;
+        } else if (!config::get('enableauto', 1)) {
+            $problems[] = get_string('check:autooff', 'local_contenttranslator');
+            $status = result::WARNING;
         }
 
         // Filter plugin.

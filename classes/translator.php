@@ -96,9 +96,10 @@ final class translator {
         $ishtml = !$item->isstring && $format != FORMAT_PLAIN;
         $segment = new segment((string)$item->id, $text, $ishtml, self::describe($item));
         $lasterror = '';
+        $runas = self::engine_user($engines, $userid);
 
         foreach ($engines as $engine) {
-            if (!$engine->is_available_for_user($userid)) {
+            if (!$engine->is_available_for_user($runas)) {
                 $lasterror = get_string('error:engineunavailable', 'local_contenttranslator', $engine->get_display_name());
                 continue;
             }
@@ -126,7 +127,7 @@ final class translator {
             }
             $options = [
                 'contextid' => (int)$item->contextid,
-                'userid' => $userid,
+                'userid' => $runas,
                 'strict' => false,
                 'previous' => self::previous_version($translation, $item),
             ];
@@ -196,6 +197,35 @@ final class translator {
         }
         translation_manager::mark_failed($translation, $lasterror ?: 'unknown error', $userid);
         return $translation;
+    }
+
+    /**
+     * User the engine call runs as.
+     *
+     * Dashboard and on-demand translations are started by a person who usually has not accepted Moodle's AI
+     * policy (and should not need to): when no engine accepts the acting user, the call runs as the translation
+     * service user set up in the wizard, which is also what the cron jobs use. Budget, history and
+     * attribution still use the acting user.
+     *
+     * @param engine[] $engines Candidate engines.
+     * @param int $userid Acting user.
+     * @return int User id for the engine call.
+     */
+    public static function engine_user(array $engines, int $userid): int {
+        foreach ($engines as $engine) {
+            if ($engine->is_available_for_user($userid)) {
+                return $userid;
+            }
+        }
+        $serviceuserid = (int)config::get('serviceuserid', 0);
+        if ($serviceuserid > 0 && $serviceuserid !== $userid) {
+            foreach ($engines as $engine) {
+                if ($engine->is_available_for_user($serviceuserid)) {
+                    return $serviceuserid;
+                }
+            }
+        }
+        return $userid;
     }
 
     /**

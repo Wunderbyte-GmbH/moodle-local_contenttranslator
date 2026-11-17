@@ -41,6 +41,7 @@ class wizard_form extends \moodleform {
         $mform->addElement('select', 'engine', get_string('engine', 'local_contenttranslator'), engine_manager::get_menu());
         $mform->setDefault('engine', config::get('engine', 'core_ai'));
         $mform->addHelpButton('engine', 'engine', 'local_contenttranslator');
+        $mform->addElement('static', 'engineproviders', '', self::describe_core_ai_providers());
         $mform->addElement('text', 'price', get_string('price', 'local_contenttranslator'), ['size' => 8]);
         $mform->setType('price', PARAM_FLOAT);
         $mform->setDefault('price', budget::get_price((string)config::get('engine', 'core_ai')));
@@ -96,6 +97,28 @@ class wizard_form extends \moodleform {
             $errors['budgetchars'] = get_string('error:budgetrequired', 'local_contenttranslator');
         }
         return $errors;
+    }
+
+    /**
+     * Which AI providers currently serve text generation for the "Moodle AI subsystem" engine.
+     *
+     * The provider is not chosen here but under Site administration > General > AI > AI providers
+     * (enabled instances, in their order); this text makes that visible in the wizard.
+     *
+     * @return string HTML
+     */
+    public static function describe_core_ai_providers(): string {
+        $url = new \moodle_url('/admin/settings.php', ['section' => 'aiprovider']);
+        $link = \html_writer::link($url, get_string('engine_providers_link', 'local_contenttranslator'));
+        $names = \local_contenttranslator\engine\core_ai_engine::get_provider_names();
+        if ($names) {
+            $text = get_string('engine_providers', 'local_contenttranslator', implode(', ', array_map('s', $names)));
+            return \html_writer::div($text . ' ' . $link, 'text-muted small');
+        }
+        return \html_writer::div(
+            get_string('engine_providers_none', 'local_contenttranslator') . ' ' . $link,
+            'text-warning small'
+        );
     }
 
     /**

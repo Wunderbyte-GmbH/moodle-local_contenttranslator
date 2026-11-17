@@ -290,6 +290,18 @@ final class automation_test extends \advanced_testcase {
     /**
      * Site level items created while automation was off get their translations bootstrapped by the scan (GH-6).
      */
+    public function test_queue_course_for_site_keeps_site_items(): void {
+        $category = $this->getDataGenerator()->create_category(['name' => 'Harbour']);
+        item_manager::sync_site();
+        $this->assertNotNull(item_manager::find('core_course', 'course_categories', 'name', (int)$category->id));
+
+        queue::queue_course(0, 2, ['de']);
+
+        $item = item_manager::find('core_course', 'course_categories', 'name', (int)$category->id);
+        $this->assertNotNull($item, 'queue_course(0) must sync the site, not delete its items');
+        $this->assertNotNull(translation_manager::get_for_item((int)$item->id, 'de'));
+    }
+
     public function test_scan_bootstraps_site_items(): void {
         global $DB;
         set_config('defaultcourseenabled', 0, 'local_contenttranslator');

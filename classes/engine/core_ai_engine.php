@@ -61,6 +61,35 @@ class core_ai_engine implements engine {
         return \core\di::get(manager::class)->is_action_available(generate_text::class);
     }
 
+    /**
+     * Display names of the enabled AI providers that serve text generation, in the order the AI subsystem tries them.
+     *
+     * @return string[]
+     */
+    public static function get_provider_names(): array {
+        if (!class_exists(manager::class) || !class_exists(generate_text::class)) {
+            return [];
+        }
+        $manager = \core\di::get(manager::class);
+        if (!method_exists($manager, 'get_providers_for_actions')) {
+            return [];
+        }
+        $names = [];
+        $byaction = $manager->get_providers_for_actions([generate_text::class], true);
+        foreach ($byaction[generate_text::class] ?? [] as $provider) {
+            if (!empty($provider->name)) {
+                // Moodle 5.0+: configured provider instance with its own name.
+                $names[] = (string) $provider->name;
+            } else {
+                // Moodle 4.5: one provider per plugin.
+                $component = method_exists($provider, 'get_name') ? $provider->get_name() : get_class($provider);
+                $names[] = get_string_manager()->string_exists('pluginname', $component)
+                    ? get_string('pluginname', $component) : $component;
+            }
+        }
+        return $names;
+    }
+
     #[\Override]
     public function is_available_for_user(int $userid): bool {
         return $userid > 0 && $this->is_available() && manager::get_user_policy_status($userid);

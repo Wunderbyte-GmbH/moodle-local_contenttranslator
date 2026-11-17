@@ -129,7 +129,13 @@ final class queue {
      */
     public static function queue_course(int $courseid, int $userid, ?array $langs = null): int {
         $langs = $langs ?? config::get_course_target_langs($courseid);
-        item_manager::sync_course($courseid);
+        if ($courseid > 0 && $courseid != SITEID) {
+            item_manager::sync_course($courseid);
+        } else {
+            // Site content (front page blocks, categories, ...): course 0 has no modules; syncing it as a
+            // course would delete every site item.
+            item_manager::sync_site();
+        }
         $pending = self::ensure_course_translations($courseid, $langs, true);
         foreach ($langs as $lang) {
             self::queue_course_lang($courseid, $lang, budget::TRIGGER_BULK, $userid, 0);

@@ -315,6 +315,32 @@ final class engine_pipeline_test extends \advanced_testcase {
     }
 
     /**
+     * A person who has not accepted the AI policy can still translate from the dashboard: the engine call runs
+     * as the translation service user (GH-8).
+     */
+    public function test_engine_runs_as_service_user_when_acting_user_lacks_policy(): void {
+        $this->add_engine(new scripted_engine('scripted', true, true, true));
+        set_config('engine', 'scripted', 'local_contenttranslator');
+        [, , $item] = $this->create_page();
+        $editor = $this->getDataGenerator()->create_user();
+
+        // Without a service user the acting user is checked and refused.
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_ONDEMAND, (int)$editor->id);
+        $this->assertSame(translation_manager::STATUS_FAILED, translation_manager::get((int)$translation->id)->status);
+
+        // With a service user that has accepted the policy the same request succeeds, attributed to the editor.
+        $service = $this->getDataGenerator()->create_user();
+        \core_ai\manager::user_policy_accepted((int)$service->id, \context_system::instance()->id);
+        set_config('serviceuserid', $service->id, 'local_contenttranslator');
+        $this->assertSame((int)$service->id, translator::engine_user([engine_manager::get_engine('scripted')], (int)$editor->id));
+        $translation = translator::translate_item($item, 'de', budget::TRIGGER_ONDEMAND, (int)$editor->id);
+        $translation = translation_manager::get((int)$translation->id);
+        $this->assertNotSame(translation_manager::STATUS_FAILED, $translation->status);
+        $this->assertSame('scripted', $translation->engine);
+        $this->assertEquals($editor->id, $translation->usermodified);
+    }
+
+    /**
      * Course opt-out of external translation (GOV-05): external engines are never called for that course.
      */
     public function test_course_optout_of_external_engines(): void {
