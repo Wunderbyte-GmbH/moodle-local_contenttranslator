@@ -58,6 +58,18 @@ final class core_ai_engine_test extends \advanced_testcase {
     }
 
     /**
+     * Model name the engine reports for the fake response: 'fake-model' where the core response carries a
+     * model (Moodle 5.0+), the fingerprint 'fp-1' on Moodle 4.5.
+     *
+     * @return string
+     */
+    private static function expected_model(): string {
+        $probe = new \core_ai\aiactions\responses\response_generate_text(true);
+        $probe->set_response_data(['model' => 'fake-model', 'fingerprint' => 'fp-1']);
+        return $probe->get_response_data()['model'] ?? 'fp-1';
+    }
+
+    /**
      * A successful response is cleaned and carries model and token usage; the action gets user and context.
      */
     public function test_success(): void {
@@ -66,7 +78,7 @@ final class core_ai_engine_test extends \advanced_testcase {
         $result = $this->translate($engine);
         $this->assertTrue($result->success);
         $this->assertSame('Hallo <ph id="1"/>Welt', $result->text);
-        $this->assertSame('fake-model', $result->model);
+        $this->assertSame(self::expected_model(), $result->model);
         $this->assertSame(12, $result->prompttokens);
         $this->assertSame(5, $result->completiontokens);
         $this->assertFalse($result->ratelimited);
@@ -151,7 +163,7 @@ final class core_ai_engine_test extends \advanced_testcase {
         $this->assertSame('', $result->text, 'The partial text is not passed on');
         $this->assertFalse($result->ratelimited);
         $this->assertSame(get_string('error:truncated', 'local_contenttranslator', 'length'), $result->error);
-        $this->assertSame('fake-model', $result->model, 'The call is billed, so its usage is still reported');
+        $this->assertSame(self::expected_model(), $result->model, 'The call is billed, so its usage is still reported');
         $this->assertSame(12, $result->prompttokens);
         $this->assertSame(5, $result->completiontokens);
         $this->assertTrue($result->retryable, 'A short text that was cut off is a runaway of the model: try once more');
